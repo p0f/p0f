@@ -1,0 +1,568 @@
+
+                                  --=--
+                                  p0f 2
+                                  --=--
+
+                    "Dr. Jekyll had something to Hyde"
+		    
+                      passive OS fingerprinting tool
+                                version 2.0
+
+     (C) Copyright 2000 - 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+   Win32 port (C) Copyright 2003 by Michael A. Davis <mike@datanerds.net>
+
+      Portions contributed by numerous good people - see CREDITS file.
+
+                  http://lcamtuf.coredump.cx/p0f.shtml
+
+  *********************************************************************
+  **** HELP WITH P0F DATABASE: http://lcamtuf.coredump.cx/p0f-help ****
+  *********************************************************************
+
+-----------
+0. Contents
+-----------
+
+  This document describes the concept and history of p0f, its
+  command-line options and extensions, and goes into some detail about
+  its operation, integration with existing solutions, and so on.
+
+  Table of contents:
+
+   1) What's this, anyway?
+   2) Why would I want to use it?
+   3) What's new then?
+   4) Command-line
+   5) Active service integration
+   6) Fingerprinting accuracy and precision
+   7) Adding signatures
+   8) Security
+   9) Limitations
+  10) Is it better than other software?
+  11) Program no work!
+  12) Logcheck integration notes
+  13) Links to OS fingerprinting resources
+
+
+-----------------------
+1. What's this, anyway?
+-----------------------
+
+  The passive OS fingerprinting technique is based on analyzing the
+  information sent by a remote host while performing usual communication
+  tasks - such as a remote party visiting your webpage, connecting to your 
+  MTA, or you connecting to a remote host with a browser or by other
+  standard means. In contrast to active fingerprinting with tools such
+  as nmap or queso, The process of passive fingerprinting does not generate
+  any additional or unusual traffic, and thus cannot be detected.
+
+  Captured packets contain enough information to identify the remote OS,
+  thanks to subtle differences between TCP/IP stacks, sometimes certain
+  implementation flaws. Some additional metrics can be used to gather
+  information about the configuration of a remote system or even its
+  ISP and network setup.
+
+  P0f was the first fully-fledged implementation of the passive 
+  fingerprinting technique. The current version uses a number of
+  detailed metrics, often invented specifically for p0f, and achieves
+  a very high level of accuracy and detail, is designed for hands-free
+  operation over an extended period of time, and has a number of features
+  to make it easy to integrate it with other solutions.
+
+  Portions of this code are used in several IDS systems, some sniffer  
+  software; p0f is also shipped with several operating systems and 
+  incorporated into an interesting OpenBSD pf hack by Mike Frantzen, that 
+  allows you to filter out or redirect traffic based on the source OS. In 
+  short, p0f is a rather well-established software at this point.
+
+------------------------------
+2. Why would I want to use it?
+------------------------------
+
+  Oh, a number of uses come to mind:
+
+    - Profiling / espionage - run on a server, firewall, proxy or router, 
+      p0f can be used to silently gather statistical and profiling information 
+      about your visitors, users, or competitors. P0f also gathers netlink
+      and distance information suitable for determining remote network
+      topology.
+
+    - Active response / policy enforcement - integrated with your services
+      or firewall, p0f can be used to handle specific OSes in the most
+      suitable manner and serve most appropriate content; you may also enforce 
+      a specific corporate OS policy, restrict SMTP connections to a set of 
+      systems, etc.
+
+    - PEN-TEST - in the SYN|ACK mode, or when a returning connection
+      can be triggered on a remote system (HTML-enabled mail with images,
+      ftp data connection, mail bounce, identd connection, IRC DCC connection,
+      etc), p0f is an invaluable tool for silent probing of a subject of
+      such a test.
+
+    - Bypassing a firewall - p0f can "see thru" most NAT devices, packet
+      firewalls, etc. In SYN|ACK mode, it can be used for fingerprinting
+      over a connection allowed by the firewall, even if other types of
+      packets are dropped; as such, p0f is the solution when NMAP and
+      other active tools fail.
+
+    - Amusement value is also pretty important. Want to know what this
+      guy runs? Does he have a DSL, X.25 WAN hookup, or a shoddy SLIP 
+      connection? What's Google crawlbot's uptime?
+
+  Of course, "a successful [software] tool is one that was used to do 
+  something undreamed of by its author" ;-)
+
+-------------------
+3. What's new then?
+-------------------
+
+  The original version of p0f was written somewhere in 2000 by Michal Zalewski
+  and later taken over William Stearns (circa 2001). The original author
+  still contributes to the code from time to time, and the version you're
+  holding right now is the original author's fault - although I'd like 
+  William to take over further maintenance, if he's interested.
+
+  Version 2 is a complete rewrite of the original v1 code. The main reason 
+  for this is to make signatures more flexible, and to implement certain 
+  additional checks for very subtle packet characteristics to improve 
+  fingerprint accuracy. Changes include:
+
+  NEW CORE CHECKS:
+
+    - Option layout and count check,
+    - EOL presence and trailing data [*],
+    - Unrecognized options handling (TTCP, etc),
+    - WSS to MSS/MTU correlation checks [*],
+    - Zero timestamp check,
+    - Non-zero ACK in initial SYN [*],
+    - Non-zero "unused" TCP fields [*],
+    - Non-zero urgent pointer in SYN [*],
+    - Non-zero second timestamp [*],
+    - Zero IP ID in initial packet,
+    - Unusual auxilinary flags,
+    - Data payload in control packets [*],
+    - Non-empty IP options.
+
+    [*] Metrics "invented" for p0f, as far as I know. Other metrics
+    were discussed before, although usually not implemented anywhere.
+
+  IMPROVEMENTS:
+
+    - Major performance improvements - no more runtime signature parsing,
+      added BPF pre-filtering, signature hash lookups - to make p0f suitable 
+      for high-throughput devices,
+
+    - Modulo and wildcard operators for certain TCP/IP parameters to make
+      it easier to come up with generic last chance signatures for
+      systems that tweak settings notoriously (think Windows),
+
+    - Auto-detection of DF-zeroing firewalls,
+
+    - Auto-detection of MSS-tweaking NAT and router devices,
+
+    - Media type detection based on MSS, with a database of common
+      link types,
+      
+    - Origin network detection based on unusual ToS / precedence bits,
+
+    - Ability to detect and skip ECN option when examining flags,
+
+    - Better fingerprint file structure and contents - all fingerprints
+      are rigorously reviewed before being added.
+
+    - Generic last-chance signatures to cover general OS characteristics,
+
+    - Query mode to enable easy integration with third party software -
+      p0f caches recent fingerprints and answer queries for src-dst
+      combinations on a local stream socket in a easy to parse
+      form,
+
+    - Usability features: greppable output option, daemon mode, host
+      name resolution option, promiscuous mode switch, built-in signature 
+      collision detector, ToS reporting, etc,
+
+    - "Officially unsupported" SYN+ACK fingerprinting mode for silent
+      identifications of systems you connect to the usual way (web
+      browser, MTA),
+
+    - Fixed WSCALE handling in general, and WSS passing on little-endian,
+      many other bug-fixes and improvements of the packet parser
+      (including some sanity checks).
+
+  Sadly, this will break all compatibility with v1 signatures, but it's
+  well worth it.
+
+---------------
+4. Command-line
+---------------
+
+  P0f is rather easy to use. There's a number of options, but you don't
+  need to know most of them for normal operation:
+
+  p0f [ -f file ] [ -i device ] [ -s file ] [ -o file ] [ -Q socket ]
+      [ -u user ] [ -NDUKAqtpdlL ] [ 'filter rule' ]
+
+  -f file   - read fingerprints from file; by default, p0f reads
+              signatures from ./p0f.fp or /etc/p0f.fp (the latter on
+              Unix systems only). You can use this to load custom 
+              fingerprint data. Specifying multiple -f values will NOT
+              combine several signature files together.
+
+  -i device - listen on this device; p0f defaults to whatever device
+              libpcap considers to be the best. On some newer systems you
+              might be able to specify 'any' to listen on all devices,
+              but don't rely on this.
+
+  -s file   - read packets from tcpdump snapshot; this is an alternate
+              mode of operation, in which p0f reads packet from pcap
+              data capture file, instead of a live network. Useful for
+              forensics (this will parse tcpdump -w output, for example). 
+
+  -o file   - write to this logfile. This option is required for -d
+              and implies -t.
+
+  -Q socket - listen on a specified local stream socket (a filesystem
+              object, for example /var/run/p0f-sock) for queries. You can
+              later send a packet to this socket with p0f_query structure
+              from p0f-query.h, and wait for p0f_response. This is a
+              method of integrating p0f with active services (web server
+              or web scripts, etc). P0f will still continue to report
+              events the usual way, but you can use -qKU to suppress any
+              text output.
+
+              From a shell script, you can query p0f using the p0fq tool
+              provided in test/ subdirectory.
+
+              NOTE: The socket will be created with permissions corresponding
+              to your current umask. If you want to restrict access to
+              this interface, use caution.
+
+              This option is currently Unix-only.
+
+  -u user   - chroot to this user's home directory after reading 
+              configuration data and binding to sockets, then switch to his 
+              UID, GID and supplementary groups.
+              
+              This is a security feature for the paranoid - when running 
+              p0f in daemon mode, you might want to create a new 
+              unprivileged user with an empty home directory, and limit the 
+              exposure when p0f is compromised. That said, should such a 
+              compromise occur, the attacker will still have a socket he can 
+              use for sniffing some network traffic (better than rm -rf /).
+
+              This option is Unix-only.
+
+  -N        - do not report distances and link media. This option 
+              logs only source IP and OS data.
+
+  -D        - do not report OS details (just genre). This option is useful
+              if you don't want p0f to elaborate on OS versions and such.
+
+  -U        - do not display unknown signatures. Use this option if
+              you want to keep your log file clean and are not interested
+              in hosts that are not recognized.
+
+  -K        - do not display known signatures. This option is only useful
+              for fingerprint gathering.
+
+  -q        - be quiet - do not display banners.
+
+  -p        - switch card to promiscuous mode; by default, p0f listens 
+              only to packets addressed or routed thru the machine it
+              runs on. This setting might decrease performance.
+
+  -t        - add timestamps to every entry. 
+
+  -d        - go into daemon mode. Requires -o.
+
+  -l	    - outputs data in line-per-record style (easy to grep).
+
+  -A	    - a semi-unsupported option for SYN+ACK mode. Don't use
+              unless you are sure you know what it is. In this option,
+              p0f will look for p0fa.fp file instead of the usual
+              p0f.fp. The usual config is NOT SUITABLE for this mode.
+
+              You can try a sample in test/p0fa.fp. If you are interested
+              in maintaining this database, please let us know. I do not
+              have enough time and systems to test at the moment.
+
+  -r	    - resolve host names; this mode is MUCH slower and poses some
+              security risk. Do not use except for interactive runs or
+              low traffic situations. NOTE: the option ONLY resolves
+              IP address into a name, and does not perform any checks to
+              verify this revDNS result. Do not rely on the name alone.
+
+  -C        - perform collision check on signatures prior to running. This
+              is an essential option whenever you add new signatures to
+              the p0f.fp file, but is not necessary otherwise. 
+
+  -L        - list all network interfaces. This option is Windows-only.
+
+  The last part, 'filter rule', is a bpf-style filter expression for
+  incoming packets. It is very useful for excluding or including certain
+  networks, hosts, or specific packets, in the logfile. See man tcpdump for 
+  more information, few examples:
+
+     'src port ftp-data'
+     'not dst net 10.0.0.0 mask 255.0.0.0'
+     'dst port 80 and ( src host 195.117.3.59 or src host 217.8.32.51 )'
+
+  The baseline rule is to select only TCP packets with SYN set, no RST, no 
+  ACK, no FIN (SYN, ACK, no RST, no FIN for -A mode). You cannot make the 
+  rule any broader, the optional filter expression can only narrow it down.
+
+  You also can use a companion log report utility for p0f. Simply 
+  run 'p0frep' for help.
+
+-----------------------------
+5. Active service integration
+-----------------------------
+
+  In some cases, you want to feed the p0f output to a specific
+  application to take certain active measures based on the operating system
+  (handle specific visitors differently, block some unwanted OSes,
+  optimize the content served).
+
+  OpenBSD users can simply use the pf OS fingerprinting implementation,
+  a cool functionality implemented by Mike Frantzen and based on p0f
+  methodology and signature database. This software allows them to redirect
+  or block OSes any way they want.
+
+  In other cases, you want to use the -Q option, and then query p0f
+  by connecting to a specific local stream socket and sending a single
+  packet with p0f_query struct (p0f-query.h), and receiving
+  p0f_response. P0f, when running in -Q mode, will cache a number of
+  last OS matches, and when queried for a specified host and port
+  combination, will return what it detected. Check test/p0fq.c for
+  a clean example.
+
+  There is no MySQL support in version 2 (yet). The authors of the
+  original code did not provide me with patches for the new release,
+  and I didn't have enough time to port it myself.
+
+  WARNING: older libpcap versions and libpcap on certain platforms does
+  not implement timeouts on live socket reads properly. Because of
+  this, p0f won't be able to query on the -Q socket and receive
+  a connection until the next SYN packet arrives, which means annoying
+  delays. To prevent this problem, make sure you are using a recent libpcap 
+  version, and that your system handles timeouts well.
+
+----------------------------------------
+6. Fingerprinting accuracy and precision
+----------------------------------------
+
+  Version 2 uses some more interesting TCP/IP packet metrics, and should
+  be inherently more accurate and precise. We also try to use common sense
+  when adding and importing signatures, which should be a great
+  realiability boost.
+
+  NOTE: To avoid decreasing reliability of the database, you MUST read the 
+  information provided at the beginning of p0f.fp carefully before touching
+  it in any way!
+
+  Link type identification is not particularly reliable, as some users tend
+  to mess with their default MTUs for better (or worse ;-) performance.
+  For most systems, it will be accurate, but if you see an unlikely
+  value reported, just deal with it.
+
+  Uptime detection is also of an amusement value. Some newly released
+  systems tend to multiply timestamp data by 10 or have other clocking
+  algorithms. The current version of p0f does not support those differences
+  over the entire database. I will try to fix it, until then, those boxes 
+  would have an artifically high uptime.
+
+  NAT detection is merely an indication of MSS being tweaked at some point.
+  Most likely, the reason for this is indeed a NATing router, but there
+  are some other explanations. Linux, for example, tends to mix up MTUs
+  from different interfaces in certain scenarios (when, I'm not sure, but
+  it's common and is probably a bug), and if you see a Linux box tagged as 
+  "NAT", it does not have to be NATed - it might simply have two network 
+  interfaces. P0f can still be a useful NAT detection tool (you can examine
+  changing distances and OS matches for a specific host, too), simply don't
+  rely on this flag alone.
+
+  If you see link type identified as unknown-XXXX, try to Google for
+  "mtu XXXX". If you find something reasonable, you might want update
+  mtu.h and recompile p0f, and submit this information to me. Keep in
+  mind some MTU settings are just arbitrary and do not have to mean a
+  thing.
+
+  P0f also tries to recognize some less popular combinations of precedence 
+  bits, type of service and so-called "must be zero" bit in TCP headers to
+  detect certain origin ISPs. Many DSL and cable operators, particularly
+  in Europe, tend to configure their routers in fairly unique ways in
+  this regard. This, again, is purely of an amusement value. See tos.h
+  for more information.
+
+  P0f will never be as precise as NMAP, simply because it has to rely
+  on what the host sends by itself, and can't check how it responds to
+  "invalid" or tweaked packets. On the other hand, in the times of
+  omnipresent personal and not quite personal firewalls and such,
+  p0f can often help where NMAP is confused.
+
+  Just like with any fingerprinting utility, active or passive, it is
+  possible to change TCP/IP stack settings to either avoid identification,
+  or appear as some other system - although some of the changes might
+  require kernel-space hacking. 
+
+--------------------
+7. Adding signatures
+--------------------
+
+  Please refer to p0f.fp for more information about signatures and
+  their format. You NEED to read this information carefully before
+  changing or adding anything.
+
+  Do consider submitting your signature to lcamtuf@coredump.cx,
+  wstearns@pobox, or connecting from the system to
+  http://lcamtuf.coredump.cx/p0f-help/. We will be happy to incorporate
+  this signature in the official release, and can help you make your
+  signature more accurate.
+
+  Be sure to run p0f -C after making any additions. This will run
+  a collision checker and warn about shadowed or possibly incorrect
+  signatures. This happens more often than you'd think.
+
+-----------
+8. Security
+-----------
+
+  Running p0f as a daemon should pose a fairly low risk, compared to
+  tcpdump or other elaborate packet parsers (Ettercap, etc). P0f does not
+  attempt anything stupid, such as parsing tricky high-level protocols. 
+  There is a slight risk I screwed up something with the option parser
+  or such, but this code should be easy to audit. If you do not feel to
+  comfortable, you can always use the -u option, which should mitigate
+  the risk signigicantly.
+
+  Do not make p0f setuid, setgid or otherwise privileged when the caller
+  isn't. Running it via sudo for users you do not trust entirely is also a 
+  so-so idea.
+
+  The biggest threat is using -r option carelessly, as it enables the
+  entire name resolution overhead, and introducing a potentially vulnerable 
+  DNS handling code, not to mention DoS potential.
+
+  Other than that, when running in -Q mode, you need to make sure, either
+  by setting umask or calling chmod/chown after launching p0f, to set
+  correct permissions on the query socket - that is, unless you don't
+  see a problem with your users querying p0f, which isn't a great threat
+  to the humanity.
+
+  Do not use world-writable directories for keeping the socket. Do not
+  use world-writable directories for output files or configuration.
+
+--------------  
+9. Limitations
+--------------
+
+  Proxy firewalls and other high-level proxy devices are not transparent
+  to any TCP-level fingerprinting software. The device itself will be
+  fingerprinted, not actual source hosts. There is some software that
+  lets you perform application fingerprinting, this isn't it.
+
+  Some packet firewalls configured to normalize outgoing traffic (OpenBSD pf 
+  with "scrub" enabled, for example) will, well, normalize packets. Those
+  signatures will not correspond to the originating system, and probably not 
+  quite to the firewall either. 
+
+  In order to obtain the information required for fingerprinting, you have
+  to receive at least one SYN packet initiating a TCP connection to your
+  machine or network. Note: you don't have to respond to this
+  particular SYN, and it's perfectly fine to respond with RST.
+
+  For SYN|ACK fingerprinting, you must be able to connect to at least one
+  open port on the target machine to actually get SYN|ACK packet. You 
+  do not need any other ports, or the ability to send awkward, multiple
+  or otherwise suspicious packets to the remote host (unlike with NMAP).
+
+  SYN|ACK fingerprinting is considered (by me) to be less accurate and
+  sometimes dependent on the system that initiates the connection. This is
+  why I put stress on developing the SYN fingerprinting capability - but
+  SYN|ACK database contributions and techniques are of course very welcome.
+
+  Fingerprinting on a fully established (existing) TCP connection is
+  currently not supported by p0f, because it is inherently less reliable,
+  and seldom of any use. You can, however, implement this rather easily
+  by tweaking the filter expression hardcoded in p0f.c and coming up with
+  a new fingerprint database.
+
+-------------------------------------
+10. Is it better than other software?
+-------------------------------------
+
+  Depends on what you need. As I said before, p0f is fast, lightweight,
+  low-profile. It can be integrated with other services. It has a clean and 
+  simple code, runs as a single thread and uses very little CPU power, works 
+  on a number of systems (Linux, BSD, Solaris and probably others), has a 
+  pretty detailed and accurate fingerprint database.
+
+  Is it better than Siphon? Yes. Ettercap? Yes, version 2 is better
+  than v1-derived fingerprinting in Ettercap. Besides, it's simply
+  different, and intended for a different range of applications.
+
+  Version 1 implemented many novel fingerprinting metrics that were
+  later incorporated in other software, so does version 2 (others are
+  yet to catch up).
+
+--------------------
+11. Program no work!
+--------------------
+
+  Whoops. We apologize. P0f requires the following to compile and
+  run fine:
+
+    - libpcap 0.4 or newer
+    - GNU cc 2.7.x or newer 
+    - GNU make 3.7x or newer, or BSD make
+    - GNU bash / awk / grep / sed / textutils (for p0frep only)
+
+  For the Windows port requirements and instructions, please read 
+  INSTALL.Win32 file.
+
+  Not every platform is supported by p0f, and compilation problems do
+  happen. Please let us know if you have any problems (or, better yet,
+  managed to find a solution).
+
+  If you find a system that is either not recognized, or is fingerprinted
+  incorrectly, pleast do not downplay this and let us know.
+
+  Platforms known to be working fine (regression tests not done on
+  a regular basis, though):
+
+    - NetBSD 
+    - FreeBSD 
+    - OpenBSD
+    - MacOS X 
+    - Linux (2.0 and up)
+    - Solaris (2.6 and up)
+    - Windows (see INSTALL.Win32)
+    - AIX (you need precompiled BULL libpcap)
+
+------------------------------
+12. Logcheck integration notes
+------------------------------
+
+  This section was a courtesy of John Sage <jsage@finchhaven.com>.
+  The section has to be updated to reflect v2 log format changes.
+
+  I apologize for the inconvenience.
+
+----------------------------------------
+13. Links to OS fingerprinting resources
+----------------------------------------
+
+  http://www.sys-security.com/html/papers.html
+  http://project.honeynet.org/papers/finger/
+  http://www.siteware.ch/webresources/useragents/db.html
+  http://www.linuxjournal.com/article.php?sid=4750
+  http://ettercap.sourceforge.net/
+  http://www.securiteam.com/securitynews/5NP0C153PI.html
+  http://www.securitybugware.org/mUNIXes/4680.html
+  http://www.cgisecurity.net/papers/fingerprinting-2.txt
+  http://www.team-teso.net/data/ldistfp-auth-fingerprints
+  http://www.team-teso.net/releases.php
+
+  http://lcamtuf.coredump.cx/p0f.shtml
+	
+

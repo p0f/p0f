@@ -1,0 +1,41 @@
+
+  ================================================================
+  You can help - please visit http://lcamtuf.coredump.cx/p0f-help/
+  ================================================================
+
+  Paradise is exactly like where you are 
+  right now... only much, much better.
+  
+Pending issues for the future releases:
+
+  - Clean up all the Windows signatures, sigh...
+  
+  - Determine URG and ACK and option pad guys (see tmp/).
+
+  - Verify quirks. I just set them to 'none' for all signatures,
+    but there are many cases for which this is not true.
+
+  - Some more SYN|ACK signatures,
+
+  - Add timestamp multipliers.
+
+  - Masquerade detection. Every system has a set of ephemeral 
+    ports used for local connections (1024-4999 on Linux, for
+    example). If a connection, fingerprinted as a system for which
+    this range is known, comes from a port outside this range,
+    it is likely there's a NAT in between. 
+
+    This would mean false positives for systems where local port
+    range was tweaked for performance, or when the NAT device translates
+    traffic to a range of ports overlapping with the local port range
+    of the source.
+
+    And a necessity to find out local port ranges for all those
+    systems, ugh. But it's an interesting concept, isn't it?
+
+  - Live connection fingerprinting (for fully established session).
+    Perhaps some really obscure option should be implemented to handle
+    this ;-)
+
+
+

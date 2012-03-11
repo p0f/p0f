@@ -1,0 +1,42 @@
+#
+# p0f - "universal" Makefile (Linux/*BSD/Darwin)
+# ----------------------------------------------
+#
+# Note, you probably need gmake for this (OpenBSD take notice).
+# 
+# (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
+#
+
+CC      = gcc
+LIBS	= -lpcap -I/usr/include/pcap -I/usr/local/include/pcap
+STRIP   = strip
+CFLAGS  = -O3 -Wall -fomit-frame-pointer -funroll-loops
+FILE	= p0f
+
+all: $(FILE) strip	
+
+static: $(FILE)-static
+
+$(FILE): $(FILE).c
+	$(CC) $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c $(LIBS)
+
+$(FILE)-static: $(FILE).c 
+	$(CC) -static $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c $(LIBS)
+
+strip:
+	strip $(FILE) 2>/dev/null || true
+
+clean:
+	rm -f core core.[0123456789]* *~ *.o $(FILE) a.out $(FILE)-static
+
+publish: clean
+	cd ..;tar cfvz /tmp/p0f.tgz p0f
+	scp -p /tmp/p0f.tgz lcamtuf@coredump.cx:/export/www/lcamtuf/p0f-beta.tgz
+	rm -f /tmp/p0f.tgz
+	
+install: $(FILE)
+	cp -f $(FILE) /usr/sbin/
+	cp -f p0frep  /usr/sbin/
+	cp -f p0f.fp  /etc/
+	#cp -f p0f.1   /usr/man/man1/
+

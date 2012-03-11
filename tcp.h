@@ -1,20 +1,25 @@
-#include <sys/types.h>
+/*
 
-#ifdef _SUN_
-typedef     unsigned char u_int8_t;
-typedef     unsigned int u_int32_t;
-#endif
+   p0f - portable TCP/IP headers
+   -----------------------------
 
-#define	TCPOPT_EOL		0
-#define	TCPOPT_NOP		1
-#define	TCPOPT_MAXSEG		2
-#define TCPOPT_WSCALE   	3
-#define TCPOPT_SACKOK   	4
-#define TCPOPT_TIMESTAMP        8
+   Well.
 
-#define EXTRACT_16BITS(p) \
-        ((u_short)*((u_char *)(p) + 0) << 8 | \
-        (u_short)*((u_char *)(p) + 1))
+   Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+
+*/
+
+#ifndef _HAVE_TCP_H
+#define _HAVE_TCP_H
+
+#include "types.h"
+
+#define	TCPOPT_EOL		0	/* End of options */
+#define	TCPOPT_NOP		1	/* Nothing */
+#define	TCPOPT_MAXSEG		2	/* MSS */
+#define TCPOPT_WSCALE   	3	/* Window scaling */
+#define TCPOPT_SACKOK   	4	/* Selective ACK permitted */
+#define TCPOPT_TIMESTAMP        8	/* Stamp out timestamping! */
 
 #define IP_DF   0x4000	/* dont fragment flag */
 #define IP_MF   0x2000	/* more fragments flag */
@@ -25,37 +30,40 @@ typedef     unsigned int u_int32_t;
 #define	TH_PUSH	0x08
 #define	TH_ACK	0x10
 #define	TH_URG	0x20
+/* Stupid ECN flags: */
+#define TH_ECE  0x40
+#define TH_CWR  0x80
 
-struct iphdr {
-  u_char  ihl;
-  u_char  tos;		/* type of service */
-  short   tot_len;	/* total length */
-  u_short id;		/* identification */
-  short   off;		/* fragment offset field */
-  u_char  ttl;		/* time to live */
-  u_char  protocol;	/* protocol */
-  u_short check;	/* checksum */
-  u_long  saddr; 
-  u_long  daddr;        /* source and dest address */
+struct ip_header {
+  _u8  ihl,	/* IHL */
+       tos;	/* type of service */
+  _u16 tot_len,	/* total length */
+       id,	/* identification */
+       off;	/* fragment offset + DF/MF */
+  _u8  ttl,	/* time to live */
+       proto; 	/* protocol */
+  _u16 cksum;	/* checksum */
+  _u32 saddr,   /* source */
+       daddr;   /* destination */
 };
 
-typedef	u_long	tcp_seq;
 
-struct tcphdr {
-	u_short	th_sport;		/* source port */
-	u_short	th_dport;		/* destination port */
-	tcp_seq	th_seq;			/* sequence number */
-	tcp_seq	th_ack;			/* acknowledgement number */
+struct tcp_header {
+  _u16 sport,	/* source port */
+       dport;	/* destination port */
+  _u32 seq,	/* sequence number */
+       ack;	/* ack number */
 #if BYTE_ORDER == LITTLE_ENDIAN
-        u_int8_t th_x2:4;           /* (unused) */
-        u_int8_t th_off:4;          /* data offset */
-#else /* __BYTE_ORDER == __BIG_ENDIAN */
-        u_int8_t th_off:4;          /* data offset */
-        u_int8_t th_x2:4;           /* (unused) */
+  _u8  _x2:4,	/* unused */
+       doff:4;	/* data offset */
+#else /* BYTE_ORDER == BIG_ENDIAN */
+  _u8  doff:4,  /* data offset */
+       _x2:4;	/* unused */
 #endif			 
-	u_char	th_flags;
-	u_short	th_win;			/* window */
-	u_short	th_sum;			/* checksum */
-	u_short	th_urp;			/* urgent pointer */
+  _u8  flags;	/* flags, d'oh */
+  _u16 win;	/* wss */
+  _u16 cksum;	/* checksum */
+  _u16 urg;	/* urgent pointer */
 };
 
+#endif /* ! _HAVE_TCP_H */

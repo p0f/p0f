@@ -1,0 +1,37 @@
+#
+# p0f - AIX Makefile
+# ------------------
+#
+# You need precompiled BULL libpcap for this.
+#
+# (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
+#
+
+CC      = gcc
+LIBS	= -lpcap -I/usr/include/pcap -I/usr/local/include/pcap \
+          -I/usr/local/include -L/usr/local/include
+CFLAGS  = -O3 -Wall
+FILE	= p0f
+
+all: $(FILE)
+
+static: $(FILE)-static
+
+$(FILE): $(FILE).c
+	@echo "WARNING: You need precompiled standard libpcap libraries (from BULL"
+	@echo "or such) to compile p0f on AIX. Bundled IBM-modified libraries will"
+	@echo "not work properly."
+	$(CC) $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c $(LIBS)
+
+$(FILE)-static: $(FILE).c 
+	$(CC) -static $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c $(LIBS)
+
+clean:
+	rm -f core core.[0123456789]* *~ *.o $(FILE) a.out $(FILE)-static
+
+install: $(FILE)
+	cp -f $(FILE) /usr/sbin/
+	cp -f p0frep  /usr/sbin/
+	cp -f p0f.fp  /etc/
+	#cp -f p0f.1   /usr/man/man1/
+

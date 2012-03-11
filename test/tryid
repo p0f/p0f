@@ -1,0 +1,12 @@
+#!/bin/bash
+#
+# p0f - trivial OS checker
+# ------------------------
+#
+# The least diplomatic way of checking a remote system to
+# resolve a signature. Note that the output should be
+# taken with a grain of salt (proxies, overzealous
+# firewalls, ippersonality, nmap database glitches, etc).
+#
+
+nmap -T Aggressive -sS -p 1,20,22,23,25,53,80,110,111,113,135,137,139,161,443,445,1030,6000,8080,8888,59999 -O "$@"

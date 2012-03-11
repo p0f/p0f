@@ -1,0 +1,21 @@
+<Wed Sep  3 20:50:55 2003> 194.177.126.22:22 - UNKNOWN [29111:128:0:40:.:A:?:?]
+  -> 217.8.32.53:22 (link: unspecified)
+  -- EXTRA TCP VALUES: ACK=0x30532569, UNUSED=0, URG=0x0 (flags = 2)
+<Wed Sep  3 20:50:55 2003> 194.177.126.22:22 - UNKNOWN [29111:128:0:40:.:A:?:?]
+  -> 217.8.32.54:22 (link: unspecified)
+  -- EXTRA TCP VALUES: ACK=0x30532569, UNUSED=0, URG=0x0 (flags = 2)
+<Wed Sep  3 20:50:55 2003> 194.177.126.22:22 - UNKNOWN [29111:128:0:40:.:A:?:?]
+  -> 217.8.32.55:22 (link: unspecified)
+  -- EXTRA TCP VALUES: ACK=0x30532569, UNUSED=0, URG=0x0 (flags = 2)
+<Wed Sep  3 20:50:55 2003> 194.177.126.22:22 - UNKNOWN [29111:128:0:40:.:A:?:?]
+  -> 217.8.32.58:22 (link: unspecified)
+  -- EXTRA TCP VALUES: ACK=0x30532569, UNUSED=0, URG=0x0 (flags = 2)
+<Wed Sep  3 20:50:55 2003> 194.177.126.22:22 - UNKNOWN [29111:128:0:40:.:A:?:?]
+  -> 217.8.32.57:22 (link: unspecified)
+  -- EXTRA TCP VALUES: ACK=0x30532569, UNUSED=0, URG=0x0 (flags = 2)
+<Wed Sep  3 20:50:55 2003> 194.177.126.22:22 - UNKNOWN [29111:128:0:40:.:A:?:?]
+  -> 217.8.32.56:22 (link: unspecified)
+  -- EXTRA TCP VALUES: ACK=0x30532569, UNUSED=0, URG=0x0 (flags = 2)
+<Wed Sep  3 20:50:55 2003> 194.177.126.22:22 - UNKNOWN [29111:128:0:40:.:A:?:?]
+  -> 217.8.32.59:22 (link: unspecified)
+  -- EXTRA TCP VALUES: ACK=0x30532569, UNUSED=0, URG=0x0 (flags = 2)
