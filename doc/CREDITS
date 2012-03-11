@@ -1,5 +1,4 @@
 
-
         "You may kiss me of course,
          But you'll have to use force.
          Though god knows you're stronger than I am."
@@ -20,6 +19,12 @@ And the credits go to:
   Rafal Wozniakowski: config reader bugfix
   Bert Kiers: NetBSD testing, suggestions
   Timo Sirainen: parser bug fix
+  Sebastian Prause: pppoe on NetBSD fix
+  Cristian Ionescu-Idbohrn: some interesting suggestions
+  Michal Margula: masq threshold
+  Dan Nelson: small p0frep fix
+  rain forest puppy: many signatures
+  Peter Gamache: p0fq fixes
 
   William Stearns did lots of work that made v2 possible and v1 successful.
   He does not have any direct contributions to v2 yet, but I hope this will

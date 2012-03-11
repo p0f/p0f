@@ -12,18 +12,19 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VER		"2.0.1"
+#define VER		"2.0.2"
 
 /* Paths and names to config files */
 
 #ifdef WIN32
 #  define CONFIG_DIR	"."
 #else
-#  define CONFIG_DIR	"/etc"
+#  define CONFIG_DIR	"/etc/p0f"
 #endif /* WIN32 */
 
 #define SYN_DB		"p0f.fp"
 #define SYNACK_DB	"p0fa.fp"
+#define RST_DB		"p0fr.fp"
 
 /* Maximum number of signatures allowed in the config file */
 
@@ -42,29 +43,51 @@
 /* Maximum number of TCP packet options. Some systems really like to
    put lots of NOPs there. */
 
-#define MAXOPT   	15
+#define MAXOPT   	16
 
 /* Max. reasonable DNS name length */
 
 #define MY_MAXDNS	32
 
-/* Query cache for -S option. Increase this if your system gets lots
-   of traffic and you get RESP_NOMATCH too often. */
+/* Query cache for -S option. This is only the default. Keep it sane -
+   increase this if your system gets lots of traffic and you get RESP_NOMATCH 
+   too often. */
 
-#define QUERY_CACHE	128
+#define DEFAULT_QUERY_CACHE	128
+
+/* Packet dump - bytes per line; this is a sane setting. */
+
+#define PKT_DLEN	16
+
+/* Packet snap length. This is passed to libpcap, and should be never
+   below 100 or such. Keep it reasonably low for performance reasons. */
+
+#define PACKET_SNAPLEN	200
+
+/* Query timeout on -Q socket. You must send data QUERY_TIMEOUT seconds
+   after establishing a connection. Set this to zero to disable timeouts
+   (not really recommended). */
+
+#define QUERY_TIMEOUT	2
+
+/* Uncomment this to give extra points for distance difference in
+   masquerade detection. This is not recommended for Internet traffic,
+   but a very good idea for looking at your local network. */
+
+// #define DIST_EXTRASCORE
 
 /* Uncomment this to display additional information as discussed in
    p0f.fp. This functionality is a hack and will disregard options such
    as greppable output or no details mode, so do not leave it on unless,
    well, debugging. */
 
-#undef DEBUG_EXTRAS
+// #define DEBUG_EXTRAS
 
 /* If you encounter any problems with false positives because of 
    a system with random or incremental IP ID picking a zero value once
-   in a while (probability under 0.002%, but always), define this to
+   in a while (probability under 0.002%, but always), uncomment this to
    disregard the 'Z' check in quirks section. */
 
-#undef IGNORE_ZEROID
+// #define IGNORE_ZEROID
 
 #endif /* ! _HAVE_CONFIG_H */

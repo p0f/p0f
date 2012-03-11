@@ -6,6 +6,10 @@
    a truly ineffective way of querying p0f from shell scripts and
    such.
 
+   If you want to query p0f from a production application, just
+   implement the same functionality in your code. It's perhaps 10
+   lines.
+
    Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
 
   */
@@ -17,6 +21,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 
@@ -55,7 +60,7 @@ int main(int argc,char** argv) {
   x.sun_family=AF_UNIX;
   strncpy(x.sun_path,argv[1],100);
 
-  if (connect(sock,&x,sizeof(x)))  pfatal(argv[1]);
+  if (connect(sock,(struct sockaddr*)&x,sizeof(x)))  pfatal(argv[1]);
 
   p.magic    = QUERY_MAGIC;
   p.id       = 0x12345678;
@@ -65,10 +70,10 @@ int main(int argc,char** argv) {
   p.dst_port = dp;
 
   if (write(sock,&p,sizeof(p)) != sizeof(p)) 
-    fatal("Socket write error.\n");
+    fatal("Socket write error (timeout?).\n");
 
   if (read(sock,&r,sizeof(r)) != sizeof(r))
-    fatal("Response read error.\n");
+    fatal("Response read error (timeout?).\n");
 
   if (r.magic != QUERY_MAGIC)
     fatal("Bad response magic.\n");
@@ -91,6 +96,9 @@ int main(int argc,char** argv) {
 
   if (r.link[0]) printf("Link     : %s\n",r.link);
   if (r.tos[0])  printf("Service  : %s\n",r.tos);
+
+  if (r.score != NO_SCORE) 
+    printf("M-Score  : %d%% (flags %x).\n",r.score,r.mflags);
 
   if (r.fw) printf("The host is behind a firewall.\n");
   if (r.nat) printf("The host is behind NAT or such.\n");

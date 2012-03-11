@@ -8,10 +8,5 @@ Known unresolved issues with p0f v2:
     more unusual timestamp frequencies. This will be addressed in the
     next release.
 
-  - The SYN|ACK database is not maintained at the moment.
-
-  - -Q can lag on certain systems and libpcap versions due to
-    no timeout handling.
-
 
 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # p0frep - trivial reporting script for p0f logfiles
 # --------------------------------------------------

@@ -16,7 +16,8 @@ Installation:
 
   2. Follow the WinPCAP instructions and install the WinPCAP driver.
 
-  3. Follow the p0f compilation instructions below.
+  3. Follow the p0f compilation instructions below or obtain a
+     binary version from http://lcamtuf.coredump.cx/p0f/.
 
   4. Execute p0f just like the Unix version.
 

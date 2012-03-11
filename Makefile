@@ -18,3 +18,13 @@ clean:
 
 publish:
 	./Build $@
+
+p0fq:
+	./Build $@
+
+sendack:
+	./Build $@
+
+install:
+	./Build $@
+

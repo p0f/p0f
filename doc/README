@@ -6,7 +6,7 @@
                     "Dr. Jekyll had something to Hyde"
 		    
                       passive OS fingerprinting tool
-                                version 2.0
+                              version 2.0.2
 
      (C) Copyright 2000 - 2003 by Michal Zalewski <lcamtuf@coredump.cx>
    Win32 port (C) Copyright 2003 by Michael A. Davis <mike@datanerds.net>
@@ -34,14 +34,15 @@
    3) What's new then?
    4) Command-line
    5) Active service integration
-   6) Fingerprinting accuracy and precision
-   7) Adding signatures
-   8) Security
-   9) Limitations
-  10) Is it better than other software?
-  11) Program no work!
-  12) Logcheck integration notes
-  13) Links to OS fingerprinting resources
+   6) Masquerade detection
+   7) Fingerprinting accuracy and precision
+   8) Adding signatures
+   9) Security
+  10) Limitations
+  11) Is it better than other software?
+  12) Program no work!
+  13) Appendix A: Exact output format
+  14) Appendix B: Links to OS fingerprinting resources
 
 
 -----------------------
@@ -61,6 +62,21 @@
   implementation flaws. Some additional metrics can be used to gather
   information about the configuration of a remote system or even its
   ISP and network setup.
+
+  The name might be slightly misleading - the technique is passive, but
+  it can be used for active testing. It is just that you are not required
+  to cause any undesirable traffic, and can rely on pretty much anything
+  you've got. P0f actually provides you with three different detection
+  modes:
+
+    - Incoming connection fingerprinting (SYN mode, default) - whenever
+      you want to know what the guy or gal who connects to you runs,
+
+    - Outgoing connection (remote party) fingerprinting (SYN+ACK mode) -
+      to fingerprint systems you or your users connect to,
+
+    - Outgoing connection refused (remote party) fingerprinting (RST+ mode) 
+      - to fingerprint systems that reject your traffic.
 
   P0f was the first fully-fledged implementation of the passive 
   fingerprinting technique. The current version uses a number of
@@ -91,16 +107,20 @@
       or firewall, p0f can be used to handle specific OSes in the most
       suitable manner and serve most appropriate content; you may also enforce 
       a specific corporate OS policy, restrict SMTP connections to a set of 
-      systems, etc.
+      systems, etc; with masquerade detection capabilities, p0f can be used
+      to detect illegal network hook-ups and TOS violations.
 
-    - PEN-TEST - in the SYN|ACK mode, or when a returning connection
+    - PEN-TEST - in the SYN+ACK or RST+ mode, or when a returning connection
       can be triggered on a remote system (HTML-enabled mail with images,
       ftp data connection, mail bounce, identd connection, IRC DCC connection,
       etc), p0f is an invaluable tool for silent probing of a subject of
       such a test.
+      
+    - Network troubleshooting - RST+ mode can be used to debug network
+      connectivity problems you or your visitors encounter.
 
     - Bypassing a firewall - p0f can "see thru" most NAT devices, packet
-      firewalls, etc. In SYN|ACK mode, it can be used for fingerprinting
+      firewalls, etc. In SYN+ACK mode, it can be used for fingerprinting
       over a connection allowed by the firewall, even if other types of
       packets are dropped; as such, p0f is the solution when NMAP and
       other active tools fail.
@@ -141,6 +161,7 @@
     - Zero IP ID in initial packet,
     - Unusual auxilinary flags,
     - Data payload in control packets [*],
+    - SEQ number equal to ACK number [*],
     - Non-empty IP options.
 
     [*] Metrics "invented" for p0f, as far as I know. Other metrics
@@ -151,6 +172,9 @@
     - Major performance improvements - no more runtime signature parsing,
       added BPF pre-filtering, signature hash lookups - to make p0f suitable 
       for high-throughput devices,
+
+    - Advanced masquerade detection for policy enforcement (ISPs,
+      corporate networks),
 
     - Modulo and wildcard operators for certain TCP/IP parameters to make
       it easier to come up with generic last chance signatures for
@@ -179,11 +203,13 @@
 
     - Usability features: greppable output option, daemon mode, host
       name resolution option, promiscuous mode switch, built-in signature 
-      collision detector, ToS reporting, etc,
+      collision detector, ToS reporting, full packet dumps, pcap dump
+      output, etc,
 
-    - "Officially unsupported" SYN+ACK fingerprinting mode for silent
+    - Brand new SYN+ACK and RST+ fingerprinting modes for silent
       identifications of systems you connect to the usual way (web
-      browser, MTA),
+      browser, MTA), or even systems you cannot connect to at all;
+      now also with RST+ACK flag and value validator.
 
     - Fixed WSCALE handling in general, and WSS passing on little-endian,
       many other bug-fixes and improvements of the packet parser
@@ -200,10 +226,11 @@
   need to know most of them for normal operation:
 
   p0f [ -f file ] [ -i device ] [ -s file ] [ -o file ] [ -Q socket ]
-      [ -u user ] [ -NDUKAqtpdlL ] [ 'filter rule' ]
+      [ -w file ] [ -u user ] [ -c size ] [ -T nn ] [ -NDVUKAMqxtpdlRL ] 
+      [ 'filter rule' ]
 
   -f file   - read fingerprints from file; by default, p0f reads
-              signatures from ./p0f.fp or /etc/p0f.fp (the latter on
+              signatures from ./p0f.fp or /etc/p0f/p0f.fp (the latter on
               Unix systems only). You can use this to load custom 
               fingerprint data. Specifying multiple -f values will NOT
               combine several signature files together.
@@ -218,6 +245,11 @@
               data capture file, instead of a live network. Useful for
               forensics (this will parse tcpdump -w output, for example). 
 
+  -w file   - writes packets to a tcpdump snapshot; useful when you need
+              to save the traffic in case it has to be verified or reviewed
+              later on. Also useful if you encounter any parser bugs -
+              data is being written prior to parsing.
+
   -o file   - write to this logfile. This option is required for -d
               and implies -t.
 
@@ -228,7 +260,7 @@
               method of integrating p0f with active services (web server
               or web scripts, etc). P0f will still continue to report
               events the usual way, but you can use -qKU to suppress any
-              text output.
+              text output. Also see -c notes.
 
               From a shell script, you can query p0f using the p0fq tool
               provided in test/ subdirectory.
@@ -238,6 +270,20 @@
               this interface, use caution.
 
               This option is currently Unix-only.
+
+  -c size   - cache size for -Q and -M options. The default is 128, which
+              is sane for a system with a moderate load (under 10 connections
+              per second or such). Setting it too high will slow down p0f
+              and may result in some -M false positives for dial-up nodes,
+              dual-boot systems, etc. Setting it too low will result in
+              cache misses for -Q option. To choose the right value,
+              use the number of connections on average per the interval
+              of time you want to cache, then pass it to p0f with -c.
+
+              P0f, when run without -q, also reports average packet ratio
+              on exit.
+
+              This option has no effect if you do not use -Q nor -M.
 
   -u user   - chroot to this user's home directory after reading 
               configuration data and binding to sockets, then switch to his 
@@ -277,14 +323,22 @@
 
   -l	    - outputs data in line-per-record style (easy to grep).
 
-  -A	    - a semi-unsupported option for SYN+ACK mode. Don't use
-              unless you are sure you know what it is. In this option,
+  -A	    - a semi-supported option for SYN+ACK mode. This option
+              will fingerprint systems you connect to, as opposed to
+	      systems that connect to you (default). With this option,	      
               p0f will look for p0fa.fp file instead of the usual
               p0f.fp. The usual config is NOT SUITABLE for this mode.
 
-              You can try a sample in test/p0fa.fp. If you are interested
-              in maintaining this database, please let us know. I do not
-              have enough time and systems to test at the moment.
+              The SYN+ACK signature database is sort of small at the
+              moment, and still looks for a maintainer.
+	      
+  -R        - go into RST+ACK/RST mode. This option will fingerprint
+              several different types of traffic, most importantly
+              "connection refused" and "timeout" messages.
+		  
+	      It is similar to SYN+ACK mode, except that the program
+	      will now look for p0fr.fp. The mode is also called RST+.
+              Please refer to p0fr.fp before using it.
 
   -r	    - resolve host names; this mode is MUCH slower and poses some
               security risk. Do not use except for interactive runs or
@@ -298,6 +352,24 @@
 
   -L        - list all network interfaces. This option is Windows-only.
 
+  -x        - dump full packet contents; this option is not  com­
+              patible  with  -l and is intended for debugging and
+              packet comparison only.
+
+  -M        - deploy masuqerade detection algotihm. The algorithm looks over 
+              recent (cached) hits and looks for indications of multiple 
+              systems being behind a single gateway. This is useful on routers 
+              and such to detect policy violations. Note that this mode is 
+              somewhat slower due to caching and lookups. This option is
+              Unix-only at the moment.
+
+  -T nn     - masquerade detection threshold; only meaningful with -M,
+              sets the threshold for masquerade reporting.
+
+  -V        - use verbose masquerade detection reporting. This option
+              describes the status of all indicators, not only an overall
+              value.
+
   The last part, 'filter rule', is a bpf-style filter expression for
   incoming packets. It is very useful for excluding or including certain
   networks, hosts, or specific packets, in the logfile. See man tcpdump for 
@@ -308,8 +380,9 @@
      'dst port 80 and ( src host 195.117.3.59 or src host 217.8.32.51 )'
 
   The baseline rule is to select only TCP packets with SYN set, no RST, no 
-  ACK, no FIN (SYN, ACK, no RST, no FIN for -A mode). You cannot make the 
-  rule any broader, the optional filter expression can only narrow it down.
+  ACK, no FIN (SYN, ACK, no RST, no FIN for -A mode; RST, no FIN, no SYN
+  for -R mode). You cannot make the rule any broader, the optional filter 
+  expression can only narrow it down.
 
   You also can use a companion log report utility for p0f. Simply 
   run 'p0frep' for help.
@@ -336,25 +409,178 @@
   combination, will return what it detected. Check test/p0fq.c for
   a clean example.
 
+  The query structure (p0f_query) has the following fields (all
+  values, addresses and port numbers are in machine's native endian):
+
+    magic	- must be set to QUERY_MAGIC,
+    id		- query ID, copied literally to the response,
+    src_ad	- source address,
+    dst_ad	- destination address,
+    src_port	- source port,
+    dst_port	- destination port.
+
+  The response (p0f_response) is as follows:
+
+    magic	- must be set to QUERY_MAGIC,
+    id		- copied from the query,
+    type	- RESP_OK, RESP_BADQUERY (error), RESP_NOMATCH (cache miss),
+    genre[20]	- OS genre, zero length if no match,
+    detail[40]	- OS version, zero length if no match,
+    dist	- distance, -1 if unknown,
+    link[30]	- link type description, zero length if unknown,
+    tos[30]	- ToS information, zero length if unknown,
+    fw,nat	- firewall and NAT flags, if spotted,
+    real	- "real" OS versus userland stack,
+    score	- masquerade score (or NO_SCORE), see next section,
+    mflags	- exact masquerade flags (D_*), see next section.
+
+  The connection is one-shot. Always send the query and recv the
+  response immediately after connect - p0f handles the connection in
+  a single thread, and you are blocking other applications (until 
+  timeout, that is, the timeout is defined as two seconds in 
+  config.h).
+
   There is no MySQL support in version 2 (yet). The authors of the
   original code did not provide me with patches for the new release,
   and I didn't have enough time to port it myself.
 
-  WARNING: older libpcap versions and libpcap on certain platforms does
-  not implement timeouts on live socket reads properly. Because of
-  this, p0f won't be able to query on the -Q socket and receive
-  a connection until the next SYN packet arrives, which means annoying
-  delays. To prevent this problem, make sure you are using a recent libpcap 
-  version, and that your system handles timeouts well.
+-----------------------
+6. Masquerade detection
+-----------------------
+
+  Masquerade detection (-M) works by looking at the following factors for
+  all known signatures that belong to operating systems (and not userland
+  tools like scanners):
+
+    - Differences in OS fingerprints for the same IP:
+        -3 if the same OS
+        +4 if different signature for the same OS genre
+        +6 if different OS genres
+    
+    - NAT and firewall flags set:
+        +4 if NAT flags differ for the same signature
+        +4 if fw flags differ for the same signature
+        +1 per each NAT and fw flag if signatures differ (max. 4)
+
+    - Link type differences:
+        +4 if media type differs
+
+    - Distance differences:
+        +1 if host distance differs
+
+    - Time from the previous occurence:
+        /2 if more than half the cache size to the previous occurence
+
+  The final score is reported as score * 200 / 23 (23 being the highest
+  score possible) and reported as a percentage.
+
+  The higher the value, the more likely the result is accurate. Since
+  the situation when all indicators are up is rather unrealistic, the
+  multiplier is 200, not 100, and you can get over 100% match ;-)
+  Everything above 0% should be looked at, over 20% is usually a sure
+  bet.
+  
+  You can configure the reporting of matches by setting the threshold
+  to a value different than zero with -T switch. -T 10 might be a good
+  idea. If you're looking at a local network, you can define 
+  DIST_EXTRASCORE to score distance differences much higher - it is
+  unlikely for a local LAN to shrink or grow, but it's not uncommon for
+  routing over the Internet to change. If you are unhappy with the
+  scoring algorithm and do not want to modify the sources, you can use
+  -V option to report the status of every masquerade indicator. In
+  conjunction with -l, -V can be used to grep for the precise set
+  of signatures you're interested in. 
+  
+  Every hit is prefixed with ">> ". Combine -M, -K and -U to report
+  masquerade hits only (but it is recommended to still dump packets 
+  with -w to be able to examine the evidence later on). A good
+  example:
+
+    p0f -M -K -U -w evidence.bin -c 500 -l -V 'not src host my_ip'
+  
+  A quick demo:
+
+  192.165.38.73:20908 - OpenBSD 3.0-3.4 (up: 836 hrs) 
+    -> 217.8.32.51:80 (distance 6, link: GPRS or FreeS/WAN)
+  192.165.38.73:21154 - Linux 2.4/2.6 (NAT!) (up: 173 hrs) 
+    -> 217.8.32.51:80 (distance 6, link: GPRS or FreeS/WAN)
+  192.165.38.73:22003 - Windows XP Pro SP1, 2000 SP3 (NAT!) 
+    -> 217.8.32.51:80 (distance 6, link: GPRS or FreeS/WAN)
+
+  >> Masquerade at 192.165.38.73: indicators at 69%.
+
+  That was quite evident.
+
+  194.68.64.2:49030 - Windows 2000 SP2+, XP SP1 
+    -> 217.8.32.51:80 (distance 10, link: ethernet/modem)
+  194.68.64.2:52942 - Windows 2000 SP4, XP SP1, patched 98 
+    -> 217.8.32.51:80 (distance 12, link: ethernet/modem)
+
+  >> Masquerade at 194.68.64.2: indicators at 43%.
+
+  The host has a name of gateway.vlt.se, so once again, a good hit.
+
+  Verbose output looks like this:
+
+  >> Masquerade at 216.88.158.142/crawlers.looksmart.com: indicators at 26%.
+     Flags: OS -far
+
+  In this case, we have two different OSes (OS), but the time between two
+  occurences is long enough to lowe the score (-far). All -V flags are:
+
+    OS		- different OS genres
+    VER		- different OS versions
+    LINK	- link type difference
+    DIST	- distance differences
+    xNAT	- NAT flags differ (when signature)
+    xFW		- FW flags differ (same signature)
+    NAT1, NAT2  - NAT flags set (different signatures)
+    FW1, FW2	- FW flags set (different signatures)
+    -far	- distant occurences
+
+  Because the score is cummulative, it is possible to have exclusive
+  flags set (e.g xNAT and NAT1) if there's a higher number of signatures
+  for a specific IP in the cache. Masquerade information can be also
+  retrieved via the query interface, as noted in the section above.
+
+  The functionality depends on keeping the fingerprint database 
+  clean and prefixing non-OS fingerprints (nmap, other scanner tools,
+  application-induced TCP/IP stack behavior) with - prefix. Those
+  fingerprints, as well as all the UNKNOWNs, are not used for masquerade 
+  detection.
+
+  Note that a single host can be reported many times. The system reports
+  immediately, but later on, the host might score a different result
+  once new data arrives. Use the highest result for a specific host, but
+  also observe the consistency of subsequent results.
+  
+  The solution uses a cyclic buffer also used in -Q mode (and affected by
+  -c parameter). You should set the value to cache not more than an
+  hour of traffic (and no less than a minute). Calculate the number of
+  connections on average per the interval of time you wish to cache,
+  then pass the value to p0f with -c.
+
+  Setting -c too high will result in false positives for dial-up nodes,
+  multiboot systems, etc. Setting it too low may miss some cases.
+
+  The code detects NAT devices that do not rewrite packets (almost
+  all packet firewalls). Ones that do rewrite packets can be detected by
+  their own signatures, though.
+
+  Masquerade detection will fail if all systems masqueraded have an
+  identical configuration and network setup (which is very unlikely,
+  even in a homogenous environment), or are never used at (roughly) the same 
+  time.
 
 ----------------------------------------
-6. Fingerprinting accuracy and precision
+7. Fingerprinting accuracy and precision
 ----------------------------------------
 
   Version 2 uses some more interesting TCP/IP packet metrics, and should
   be inherently more accurate and precise. We also try to use common sense
   when adding and importing signatures, which should be a great
-  realiability boost.
+  realiability boost. More obscure modes, such as RST+, may be inherently 
+  less accurate or reliable - see section 9 for more details.
 
   NOTE: To avoid decreasing reliability of the database, you MUST read the 
   information provided at the beginning of p0f.fp carefully before touching
@@ -406,7 +632,7 @@
   require kernel-space hacking. 
 
 --------------------
-7. Adding signatures
+8. Adding signatures
 --------------------
 
   Please refer to p0f.fp for more information about signatures and
@@ -422,9 +648,18 @@
   Be sure to run p0f -C after making any additions. This will run
   a collision checker and warn about shadowed or possibly incorrect
   signatures. This happens more often than you'd think.
+  
+  The same applies to p0fa.fp and p0fr.fp files. You need to
+  run p0f -A -C and p0f -R -C to verify their contents.
+
+  Rest assured, you will sooner or later find something really
+  surprising. You can look at tmp/ to see a current list of
+  mysteries I've stumbled upon. The museum at 
+  http://lcamtuf.coredump.cx/mobp/ lists some other funky cases.
+  By all means, I'd like to hear about other UFO sightings!
 
 -----------
-8. Security
+9. Security
 -----------
 
   Running p0f as a daemon should pose a fairly low risk, compared to
@@ -452,9 +687,9 @@
   Do not use world-writable directories for keeping the socket. Do not
   use world-writable directories for output files or configuration.
 
---------------  
-9. Limitations
---------------
+---------------  
+10. Limitations
+---------------
 
   Proxy firewalls and other high-level proxy devices are not transparent
   to any TCP-level fingerprinting software. The device itself will be
@@ -471,24 +706,37 @@
   machine or network. Note: you don't have to respond to this
   particular SYN, and it's perfectly fine to respond with RST.
 
-  For SYN|ACK fingerprinting, you must be able to connect to at least one
-  open port on the target machine to actually get SYN|ACK packet. You 
+  For SYN+ACK fingerprinting, you must be able to connect to at least one
+  open port on the target machine to actually get SYN+ACK packet. You 
   do not need any other ports, or the ability to send awkward, multiple
   or otherwise suspicious packets to the remote host (unlike with NMAP).
+  Also note that SYN+ACK fingerprints are somewhat affected by the initial
+  SYN on some systems.
 
-  SYN|ACK fingerprinting is considered (by me) to be less accurate and
+  If you cannot establish a connection, but the remote party at least
+  sends you RST+ACK back ("Connection refused"), you can use RST+ mode of 
+  p0f (-R option), but be aware this mode is inherently less accurate
+  and reliable, mostly because systems usually don't bother with
+  putting any options in those packets, and they all look very similar.
+
+  SYN+ACK fingerprinting is considered (by me) to be less accurate and
   sometimes dependent on the system that initiates the connection. This is
   why I put stress on developing the SYN fingerprinting capability - but
-  SYN|ACK database contributions and techniques are of course very welcome.
-
+  SYN+ACK database contributions and techniques are of course very welcome.
+  
   Fingerprinting on a fully established (existing) TCP connection is
   currently not supported by p0f, because it is inherently less reliable,
   and seldom of any use. You can, however, implement this rather easily
   by tweaking the filter expression hardcoded in p0f.c and coming up with
   a new fingerprint database.
+  
+  What I'll be trying to do is to integrate a number of fingerprinting
+  techniques, currently completely separate (SYN, SYN+ACK, ACK, FIN,
+  RST, retransmission timing, etc) into a single solution for very
+  high accuracy. But this is perhaps p0f 3.0.
 
 -------------------------------------
-10. Is it better than other software?
+11. Is it better than other software?
 -------------------------------------
 
   Depends on what you need. As I said before, p0f is fast, lightweight,
@@ -506,7 +754,7 @@
   yet to catch up).
 
 --------------------
-11. Program no work!
+12. Program no work!
 --------------------
 
   Whoops. We apologize. P0f requires the following to compile and
@@ -525,7 +773,7 @@
   managed to find a solution).
 
   If you find a system that is either not recognized, or is fingerprinted
-  incorrectly, pleast do not downplay this and let us know.
+  incorrectly, please do not downplay this and let us know.
 
   Platforms known to be working fine (regression tests not done on
   a regular basis, though):
@@ -539,17 +787,89 @@
     - Windows (see INSTALL.Win32)
     - AIX (you need precompiled BULL libpcap)
 
-------------------------------
-12. Logcheck integration notes
-------------------------------
+  If p0f compiles and runs, but displays "unknown datalink" or 
+  "bad header_len" warnings, it is likely that your network interface type
+  is not (yet) recognized. Let us know.
 
-  This section was a courtesy of John Sage <jsage@finchhaven.com>.
-  The section has to be updated to reflect v2 log format changes.
+-----------------------
+13. Exact output format
+-----------------------
 
-  I apologize for the inconvenience.
+  Following is a brief description of the output format of p0f v2.
+  While it is recommended to use -Q mode for service integration, it
+  might be still necessary to perform log post-processing, etc.
+
+  Every line starts with an optional timestamp (enabled by -o or -t
+  options). The format is as follows:
+
+  <Wed Sep 24 01:14:55 2003> 
+
+  The format is essentially the standard Unix date format. The next
+  field is mandatory and specifies the source host:
+
+  ip_address[/name]:port
+
+  The /name part is appended only if -r option is provided, and there
+  was a DNS record for this particular IP. Following is a ' - '
+  separator, and the name of the system with any additional remarks:
+
+  System_name [ version (notes) ]
+
+  The latter part is supressed by -D option. Notes usually describe
+  signature number or other specifics. Then, there is a number of
+  optional notes:
+
+  (NAT!)			- the system is behind MSS-tweaking NAT
+  (NAT2!)			- the system is behind MTU-tweaking NAT
+  (ECN)				- ECN enabled on the remote system
+  (firewall!)			- the system has DF cleared
+  \[Name\]			- provider name identified as..., OR
+  \[tos XX\]			- ToS set, but provider name not identified
+  \[GENERIC\]			- signature is a generic one
+  \*				- further details inhibited for this signature
+  (up nnn hrs)			- system uptime
+  (refused)			- RST+ mode: valid conn. refused packet
+  (dropped)			- RST+ mode: valid conn. dropped packet
+  (invalid-NN)			- RST+ mode: invalid RST packet (see p0fr.fp)
+
+  If the signature is generic, or if -S option was used, the next line is:
+
+    Signature: \[signature_data\]
+
+  ...where signature_data follows the standard p0f.fp notation.
+
+  If the system was not regognized, the format of the OS line is 
+  slightly different:
+
+  UNKNOWN \[signature_data\]
+
+  Where signature data follows the standard p0f.fp notation. All
+  options except for GENERIC, * and (firewall!) can still follow the entry.
+  Signature is not repeated in the next line regardless of -S.
+
+  Unless -N is in effect, the next line is as follows:
+
+    -> dst_ip:port ([distance NN, ]link: description)
+
+  ...the distance part is present only when the signature was recognized
+  properly. Link description is the name of the link type, or a special
+  keyword "unspecified", or a special value "unknown-NNNN". 
+
+  In -l mode, all line breaks are inhibited.
+
+  If -x is enabled (not compatible with -l), the subsequent lines are in 
+  this format:
+
+    \[XX\] nn nn nn nn .... | AAAA...
+
+  Where XX is a hex address, nn is a hex sequence of byte values, and
+  AAAA is human-readable contents of the packet.
+
+  Additionally, when -M option is in effect, the data described in
+  section 6 may be displayed.
 
 ----------------------------------------
-13. Links to OS fingerprinting resources
+14. Links to OS fingerprinting resources
 ----------------------------------------
 
   http://www.sys-security.com/html/papers.html

@@ -1,19 +1,23 @@
 #
-# p0f - passive OS fingerprinting
-# -------------------------------
+# p0f - SYN fingerprints
+# ----------------------
 #
-# SYN signatures. Those signatures work for SYN packets only (duh!). 
+# .-------------------------------------------------------------------------.
+# | The purpose of this file is to cover signatures for incoming TCP/IP     |
+# | connections (SYN packets). This is the default mode of operation for    |
+# | p0f. This is also the biggest and most up-to-date set of signatures     |
+# | shipped with this project. The file also contains a detailed discussion |
+# | of all metrics examined by p0f, and some practical notes on how to      |
+# | add new signatures.                                                     |
+# `-------------------------------------------------------------------------'
 #
 # (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
 #
-# >> Adding a signature? Let us know - mail a copy of your discovery to
-# >> lcamtuf@coredump.cx or wstearns@pobox.com and help make p0f better
-# >> - we can help you make your signature better, too. Also, be sure
-# >> to run p0f -C after making any changes here.
-#
 # Each line in this file specifies a single fingerprint. Please read the
 # information below carefully before attempting to append any signatures
-# reported by p0f as UNKNOWN to this file to avoid mistakes.
+# reported by p0f as UNKNOWN to this file to avoid mistakes. Note that
+# this file is compatible only with the default operation mode, and not
+# with -R or -A options (SYN+ACK and RST+ modes).
 #
 # We use the following set metrics for fingerprinting:
 #
@@ -70,9 +74,9 @@
 #   check the documentation for a remote system, or check its settings.
 #   A fairly good method is to simply round the observed TTL up to
 #   32, 64, 128, or 255, but it should be noted that some obscure devices
-#   might not use round TTLs (in particular, some shoddy appliances use
-#   "original" initial TTL settings). If not sure, you can see how many
-#   hops you're away from the remote party with traceroute or mtr.
+#   might not use round TTLs (in particular, some shoddy appliances and
+#   IRIX and Tru64 are known to use "original" initial TTL settings). If not
+#   sure, use traceroute or mtr to see how far you are from the host.
 #
 # - Don't fragment flag (DF) - some modern OSes set this to implement PMTU
 #   discovery. Others do not bother.
@@ -125,6 +129,12 @@
 #
 #   NEW SIGNATURE: copy ? options literally.
 #
+# - EOL option. Contrary to the popular belief, the presence of EOL
+#   option is actually quite rare, most systems just NOP-pad to the
+#   packet boundary.
+#
+#   NEW SIGNATURE: copy E option literally.
+#
 # - The sequence of TCP all options mentioned above - this is very
 #   specific to the implementation,
 #
@@ -137,11 +147,7 @@
 #   behavior. This section captures all unusual yes-no properties not
 #   related to the main and expected header layout. We detect the following:
 #
-#   - EOL-terminated options. This is by all means correct, but most
-#     systems simply pad with NOPs to the packet boundary instead of
-#     putting EOL at some point.
-#
-#   - Data past the headers. Neither SYN nor SYN|ACK packets are supposed
+#   - Data past the headers. Neither SYN nor SYN+ACK packets are supposed
 #     to carry any payload. If they do, we should take notic. The actual
 #     payload is not examined, but will be displayed if you compile p0f with
 #     DEBUG_EXTRAS.
@@ -187,7 +193,7 @@
 #   - Non-zero second timestamp. The initial SYN packet should have the
 #     second timestamp always zeroed.
 #
-#   - Unusual flags. If, in addition to SYN (or SYN|ACK), there are some
+#   - Unusual flags. If, in addition to SYN (or SYN+ACK), there are some
 #     auxilinary flags that do not modify the very meaning of a packet,
 #     p0f records this (this can be URG, PUSH, or something else).
 #
@@ -199,7 +205,16 @@
 #   - TCP option segment parsing problems. If p0f fails to decode options
 #     because of a badly broken packet, it records this fact.
 #
+#   There are several other quirks valid in RST+ mode, see p0fr.fp for
+#   more information. Those quirks are unheard of in SYN and SYN+ACK 
+#   modes.
+#
 #   NEW SIGNATURE: Copy "quirks" section literally.
+#
+# We DO NOT use ToS for fingerprinting. While the original TCP/IP
+# fingerprinting research believed this value would be useful for this 
+# purpose, it is not. The setting is way too often tweaked by network
+# devices.
 #
 # To wildcard MSS, WSS or WSCALE, replace it with '*'. You can also use a
 # modulo operator to match any values that divide by nnn - '%nnn' (and,
@@ -230,10 +245,18 @@
 # you don't have a precise match, but can tell it's Windows or FreeBSD
 # or whatnot by looking at, say, flag layout alone.
 #
+# If OS genre starts with - (which can prefix @ or *), the entry is
+# not considered to be a real operating system (but userland stack
+# instead). It is important to mark all scanners and so on with -,
+# so that they are not used for masquerade detection (also add this
+# prefix for signatures of application-induced behavior, such as
+# increased window size with Opera browser).
+#
 # Option block description is a list of comma or space separated
 # options in the order they appear in the packet:
 #
 # N	   - NOP option
+# E	   - EOL option
 # Wnnn	   - window scaling option, value nnn (or * or %nnn)
 # Mnnn	   - maximum segment size option, value nnn (or * or %nnn)
 # S	   - selective ACK OK
@@ -254,7 +277,6 @@
 # Quirks section is usually an empty list ('.') of oddities or bugs of this
 # particular stack. List items are not separated in any way. Possible values:
 #
-# E	- EOL-terminated options,
 # P     - options past EOL,
 # Z	- zero IP ID,
 # I	- IP options specified,
@@ -265,6 +287,8 @@
 # F     - unusual flags (PUSH, URG, etc),
 # D     - data payload,
 # !     - broken options segment.
+#
+# For Q, K and 0 quirks, please refer to p0fr.fp.
 #
 # WARNING WARNING WARNING
 # -----------------------
@@ -279,12 +303,11 @@
 # Check DNS name, establish a connection to the remote host and look
 # at SYN+ACK (p0f -A -S should do) - does it look similar?
 #
-# Some users tweak their TCP/IP settings - enable or disable RFC1323
-# functionality, enable or disable timestamps or selective ACK,
-# disable PMTU discovery, change MTU, initial TTL and so on. Always compare
-# a new rule to other fingerprints for this system, and verify the system 
-# isn't "customized" before adding it. It is OK to add signature variants
-# caused by a commonly used software (personal firewalls, security
+# Some users tweak their TCP/IP settings - enable or disable RFC1323,
+# RFC1644 or RFC2018 support, disable PMTU discovery, change MTU, initial
+# TTL and so on. Always compare a new rule to other fingerprints for
+# this system, and verify the system isn't "customized". It is OK to
+# add signature variants caused by commonly used software (PFs, security
 # packages, etc), but it makes no sense to try to add every single
 # possible /proc/sys/net/ipv4/* tweak on Linux or so.
 #
@@ -296,6 +319,10 @@
 # NOTE: Try to keep this file in some reasonable order, from most to
 # least likely systems. This will speed up operation. Also keep most
 # generic and broad rules near ehe end.
+#
+# Still decided to add signature? Let us know - mail a copy of your discovery
+# to lcamtuf@coredump.cx. You can help make p0f better, and I can help you
+# make your signature more accurate.
 #
 
 ##########################
@@ -330,7 +357,7 @@ S4:64:1:60:M1360,S,T,N,W0:.:Linux:2.4 (Google crawlbot)
 # Linux 2.6.0-test has an identical footprint as 2.4. I
 # wouldn't put it here until 2.6 gets a bit more, err,
 # mature (and perhaps starts to differ ;-), but many
-# people keep submitting 2.6.0s.
+# people keep submitting 2.6.0-tests.
 
 S2:64:1:60:M*,S,T,N,W0:.:Linux:2.4 (big boy)
 S3:64:1:60:M*,S,T,N,W0:.:Linux:2.4.18 and newer
@@ -359,8 +386,8 @@ T4:64:1:60:M1412,S,T,N,W0:.:Linux:2.4 (late, uncommon)
 S8:64:1:60:M3884,S,T,N,W0:.:Linux:2.2 (local)
 
 # Opera visitors:
-16384:64:1:60:M*,S,T,N,W0:.:Linux:2.2 (Opera?)
-32767:64:1:60:M*,S,T,N,W0:.:Linux:2.4 (Opera?)
+16384:64:1:60:M*,S,T,N,W0:.:-Linux:2.2 (Opera?)
+32767:64:1:60:M*,S,T,N,W0:.:-Linux:2.4 (Opera?)
 
 # Some fairly common mods:
 S4:64:1:52:M*,N,N,S,N,W0:.:Linux:2.4 w/o timestamps
@@ -377,30 +404,29 @@ S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
 57344:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.6-4.8
 
 32768:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.8-5.1 (or MacOS X 10.2-10.3)
-65535:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.7-5.1 (or MacOS X 10.2-10.3)
-65535:64:1:60:M*,N,W1,N,N,T:.:FreeBSD:4.7-5.1
+65535:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.7-5.1 (or MacOS X 10.2-10.3) (1)
+65535:64:1:60:M*,N,W1,N,N,T:.:FreeBSD:4.7-5.1 (or MacOS X 10.2-10.3) (2)
 
 65535:64:1:60:M*,N,W0,N,N,T:Z:FreeBSD:5.1-current (1)
 65535:64:1:60:M*,N,W1,N,N,T:Z:FreeBSD:5.1-current (2)
+65535:64:1:60:M*,N,W2,N,N,T:Z:FreeBSD:5.1-current (3)
 
 # 16384:64:1:60:M*,N,N,N,N,N,N,T:.:FreeBSD:4.4 (w/o timestamps)
 
 # ----------------- NetBSD ------------------
 
-65535:64:0:60:M*,N,W0,N,N,T0:.:NetBSD:1.6 (Opera)
-16384:64:0:60:M*,N,W0,N,N,T0:.:NetBSD:1.6
-16384:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6 (DF)
 16384:64:0:60:M*,N,W0,N,N,T:.:NetBSD:1.3
+65535:64:0:60:M*,N,W0,N,N,T0:.:-NetBSD:1.6 (Opera)
+16384:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6
 65535:64:1:60:M*,N,W1,N,N,T0:.:NetBSD:1.6W-current (DF)
+65535:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6X (DF)
 
 # ----------------- OpenBSD -----------------
 
 16384:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.4
 57344:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.3-3.4
 16384:64:0:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.4 (scrub)
-
-# Opera!
-65535:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.4 (Opera)
+65535:64:1:64:M*,N,N,S,N,W0,N,N,T:.:-OpenBSD:3.0-3.4 (Opera)
 
 # ----------------- Solaris -----------------
 
@@ -416,57 +442,74 @@ S23:64:1:48:N,N,S,M*:.:Solaris:8 (2)
 S34:64:1:48:M*,N,N,S:.:Solaris:9
 S44:255:1:44:M*:.:Solaris:7
 
+4096:64:0:44:M1460:.:SunOS:4.1.x
+
 # ----------------- IRIX --------------------
 
-49152:64:0:44:M*:.:IRIX:6.4
-61440:64:0:44:M*:.:IRIX:6.2-6.5
-49152:64:0:52:M*,N,W2,N,N,S:.:IRIX:6.5 (RFC1323) (1)
-49152:64:0:52:M*,N,W3,N,N,S:.:IRIX:6.5 (RFC1323) (2)
+49152:60:0:44:M*:.:IRIX:6.4
+61440:60:0:44:M*:.:IRIX:6.2-6.5
+49152:60:0:52:M*,N,W2,N,N,S:.:IRIX:6.5 (RFC1323) (1)
+49152:60:0:52:M*,N,W3,N,N,S:.:IRIX:6.5 (RFC1323) (2)
 
-61440:64:0:48:M*,N,N,S:.:IRIX:6.5.12-6.5.21 (1)
-49152:64:0:48:M*,N,N,S:.:IRIX:6.5.12-6.5.21 (2)
+61440:60:0:48:M*,N,N,S:.:IRIX:6.5.12-6.5.21 (1)
+49152:60:0:48:M*,N,N,S:.:IRIX:6.5.12-6.5.21 (2)
 
 # ----------------- Tru64 -------------------
+# Tru64 and OpenVMS share the same stack on occassions.
+# Relax.
 
-32768:64:1:48:M*,N,W0:.:Tru64:4.0 (or OS/2 Warp 4)
-32768:64:0:48:M*,N,W0:.:Tru64:5.0
-8192:64:0:44:M1460:.:Tru64:5.1 (no RFC1323) (or QNX 6)
-
-# This looks awfully Linuxish :/
-# S22:64:0:60:M*,S,T,N,W0:.:Tru64:5.0a
-
-61440:64:0:48:M*,N,W0:.:Tru64:v5.1a JP4 (or OpenVMS 7.x on Compaq 5.x stack)
+32768:60:1:48:M*,N,W0:.:Tru64:4.0 (or OS/2 Warp 4)
+32768:60:0:48:M*,N,W0:.:Tru64:5.0 (or OpenVMS 7.x on Compaq 5.0 stack)
+8192:60:0:44:M1460:.:Tru64:5.1 (no RFC1323) (or QNX 6)
+61440:60:0:48:M*,N,W0:.:Tru64:v5.1a JP4 (or OpenVMS 7.x on Compaq 5.x stack)
 
 # ----------------- OpenVMS -----------------
 
-6144:64:1:60:M*,N,W0,N,N,T:.:OpenVMS:7.2 (Multinet 4.4 stack)
+6144:64:1:60:M*,N,W0,N,N,T:.:OpenVMS:7.2 (Multinet 4.3-4.4 stack)
 
 # ----------------- MacOS -------------------
 
-16616:255:1:48:M*,W0:E:MacOS:7.3-8.6 (OTTCP)
+S2:255:1:48:M*,W0,E:.:MacOS:8.6 classic
+
+16616:255:1:48:M*,W0,E:.:MacOS:7.3-8.6 (OTTCP)
+16616:255:1:48:M*,N,N,N,E:.:MacOS:8.1-8.6 (OTTCP)
 32768:255:1:48:M*,W0,N:.:MacOS:9.0-9.2
+
+32768:255:1:48:M1380,N,N,N,N:.:MacOS:9.1 (1) (OT 2.7.4)
+65535:255:1:48:M*,N,N,N,N:.:MacOS:9.1 (2) (OT 2.7.4)
+
 32768:64:0:60:M*,N,W0,N,N,T:.:MacOS:X:10.2
 
 # ----------------- Windows -----------------
 
-# Windows 95 - need more:
+# Windows TCP/IP stack is a mess. For most recent XP, 2000 and
+# even 98, the pathlevel, not the actual OS version, is more
+# relevant to the signature. They share the same code, so it would
+# seem. Luckily for us, almost all Windows 9x boxes have an
+# awkward MSS of 536, which I use to tell one from another
+# in most difficult cases.
 
-8192:32:1:44:M*:.:Windows:95 (low TTL)
+8192:32:1:44:M*:.:Windows:3.11 (Tucows)
+S44:64:1:64:M*,N,W0,N,N,T0,N,N,S:.:Windows:95
+8192:128:1:64:M*,N,W0,N,N,T0,N,N,S:.:Windows:95b
 
-# Windows 98 - plenty of silly signatures:
+# There were so many tweaking tools and so many stack versions for
+# Windows 98 it is no longer possible to tell them from each other
+# without some very serious research. Until then, there's an insane
+# number of signatures, for your amusement:
 
 S44:32:1:48:M*,N,N,S:.:Windows:98 (low TTL) (1)
 8192:32:1:48:M*,N,N,S:.:Windows:98 (low TTL) (2)
-
-%8192:64:1:48:M*,N,N,S:.:Windows:98 (or newer XP/2000 with tweaked TTL)
+%8192:64:1:48:M536,N,N,S:.:Windows:98 (13)
+%8192:128:1:48:M536,N,N,S:.:Windows:98 (15)
 S4:64:1:48:M*,N,N,S:.:Windows:98 (1)
 S6:64:1:48:M*,N,N,S:.:Windows:98 (2)
-S12:64:1:48:M*,N,N,S:.:Windows:98 (3)
+S12:64:1:48:M*,N,N,S:.:Windows:98 (3
+T30:64:1:64:M1460,N,W0,N,N,T0,N,N,S:.:Windows:98 (16)
 32767:64:1:48:M*,N,N,S:.:Windows:98 (4)
 37300:64:1:48:M*,N,N,S:.:Windows:98 (5)
 46080:64:1:52:M*,N,W3,N,N,S:.:Windows:98 (RFC1323)
 65535:64:1:44:M*:.:Windows:98 (no sack)
-
 S16:128:1:48:M*,N,N,S:.:Windows:98 (6)
 S16:128:1:64:M*,N,W0,N,N,T0,N,N,S:.:Windows:98 (7)
 S26:128:1:48:M*,N,N,S:.:Windows:98 (8)
@@ -475,31 +518,36 @@ T30:128:1:48:M*,N,N,S:.:Windows:98 (9)
 60352:128:1:48:M*,N,N,S:.:Windows:98 (11)
 60352:128:1:64:M*,N,W2,N,N,T0,N,N,S:.:Windows:98 (12)
 
-# Windows NT 4.0 - need more:
-
-64512:128:1:44:M1414:.:Windows:NT 4.0 SP6a
+# What's with 1414 on NT?
+T31:128:1:44:M1414:.:Windows:NT 4.0 SP6a (1)
+64512:128:1:44:M1414:.:Windows:NT 4.0 SP6a (2)
 8192:128:1:44:M*:.:Windows:NT 4.0 (older)
-6144:128:1:52:M*,W0,N,S,N,N:.:Windows:NT 4.0 (RFC1323)
 
 # Windows XP and 2000. Most of the signatures that were
 # either dubious or non-specific (no service pack data)
 # were deleted and replaced with generics at the end.
 
-65535:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP1 (1)
-%8192:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP1 (2)
-S45:128:1:48:M*,N,N,S:.:Windows:2000 SP4 (2)
+65535:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP1
+%8192:128:1:48:M*,N,N,S:.:Windows:2000 SP2+, XP SP1 (seldom 98 4.10.2222)
+S20:128:1:48:M*,N,N,S:.:Windows:SP3
+S45:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP 1 (2)
+40320:128:1:48:M*,N,N,S:.:Windows:2000 SP4
 
-S6:128:1:48:M*,N,N,S:.:Windows:XP SP1, 2000 SP4 (1)
+S6:128:1:48:M*,N,N,S:.:Windows:XP, 2000 SP2+
+S12:128:1:48:M*,N,N,S:.:Windows:XP SP1 (1)
 S44:128:1:48:M*,N,N,S:.:Windows:XP Pro SP1, 2000 SP3
-64512:128:1:48:M*,N,N,S:.:Windows:XP SP1 (2)
-32767:128:1:48:M1452,N,N,S:.:Windows:XP SP1 (3)
+64512:128:1:48:M*,N,N,S:.:Windows:XP SP1, 2000 SP3 (2)
+32767:128:1:48:M*,N,N,S:.:Windows:XP SP1, 2000 SP4 (3)
 
 # Odds, ends, mods:
 
 S52:128:1:48:M1260,N,N,S:.:Windows:XP/2000 via Cisco
+65520:128:1:48:M*,N,N,S:.:Windows:XP bare-bone
+16384:128:1:52:M536,N,W0,N,N,S:.:Windows:2000 w/ZoneAlarm?
+2048:255:0:40:.:.:Windows:.NET Enterprise Server
 
-# HUNT DOWN:
-*:128:1:48:M*,N,N,S:U:@Windows:XP (leak) (PLEASE REPORT)
+# No need to be more specific, it passes:
+*:128:1:48:M*,N,N,S:U:-Windows:XP/2000 while downloading (leak!)
 
 # ----------------- HP/UX -------------------
 
@@ -511,11 +559,12 @@ S52:128:1:48:M1260,N,N,S:.:Windows:XP/2000 via Cisco
 
 # ----------------- RiscOS ------------------
 
-16384:64:1:68:M1460,N,W0,N,N,T,N,N,?12:.:RISC OS:3.70-4.36
+16384:64:1:68:M1460,N,W0,N,N,T,N,N,?12:.:RISC OS:3.70-4.36 (inet 5.04)
+12288:32:0:44:M536:.:RISC OS:3.70 inet 4.10
+4096:64:1:56:M1460,N,N,T:T:.:RISC OS:3.70 freenet 2.00
 
 # ----------------- BSD/OS ------------------
 
-# Once again, power of two WSS is also shared by MacOS X with DF set
 8192:64:1:60:M1460,N,W0,N,N,T:.:BSD/OS:3.1-4.3 (or MacOS X 10.2)
 
 # ---------------- NetwonOS -----------------
@@ -534,7 +583,10 @@ S8:64:0:44:M512:.:NeXTSTEP:3.3
 # ------------------ OS/400 -----------------
 
 8192:64:1:60:M1440,N,W0,N,N,T:.:OS/400:V4R4/R5
+8192:64:0:44:M536:.:OS/400:V4R3/M0
 4096:64:1:60:M1440,N,W0,N,N,T:.:OS/400:V4R5 + CF67032
+
+28672:64:0:44:M1460:A:OS/390:?
 
 # ------------------ ULTRIX -----------------
 
@@ -549,13 +601,30 @@ S16:64:0:44:M512:.:QNX:demodisk
 16384:128:1:44:M1460:.:Novell:NetWare 5.0
 6144:128:1:44:M1460:.:Novell:IntranetWare 4.11
 
+# According to rfp:
+6144:128:1:52:M*,W0,N,S,N,N:.:Novell:Netware 6 SP3
+
 # -------------- SCO UnixWare ---------------
 
 S3:64:1:60:M1460,N,W0,N,N,T:.:SCO:UnixWare 7.1
+S23:64:1:44:M1380:.:SCO:OpenServer 5.0
 
 # ------------------- DOS -------------------
 
 2048:255:0:44:M536:.:DOS:Arachne via WATTCP/1.05
+
+# ------------------ OS/2 -------------------
+
+S56:64:0:44:M512:.:OS/2:4
+
+# ----------------- TOPS-20 -----------------
+
+# Another hardcore MSS, one of the ACK leakers hunted down.
+0:64:0:44:M1460:A:TOPS-20:version 7
+
+# ------------------ AMIGA ------------------
+
+S32:64:1:56:M*,N,N,S,N,N,?12:.:AMIGA:3.9 BB2 with Miami stack
 
 ###########################################
 # Appliance / embedded / other signatures #
@@ -568,9 +637,9 @@ S12:64:1:48:N,N,S,M1460:.:@Checkpoint:(unknown 2)
 4096:32:0:44:M1460:.:ExtremeWare:4.x
 60352:64:0:52:M1460,N,W2,N,N,S:.:Clavister:firewall 7.x
 
-# Meh, this is just Linux 2.2 w/o timestamps. Commented out
-# not to confuse people.
-# S22:64:1:52:M1460,N,N,S,N,W0:.:Symantec:Velociraptor 7 
+S32:64:0:68:M512,N,W0,N,N,T,N,N,?12:.:Nokia:IPSO w/Checkpoint NG FP3
+
+S4:64:1:60:W0,N,S,T,M1460:.:FortiNet:FortiGate 50
 
 # ------- Switches and other stuff ----------
 
@@ -581,11 +650,16 @@ S8:255:0:44:M*:.:Cisco:12008
 
 # ---------- Caches and whatnots ------------
 
+8192:64:1:64:M1460,N,N,S,N,W0,N,N,T:.:NetCache:5.2
+16384:64:1:64:M1460,N,N,S,N,W0,N:.:NetCache:5.3
+65535:64:1:64:M1460,N,N,S,N,W*,N,N,T:.:NetCache:5.3-5.5
+20480:64:1:64:M1460,N,N,S,N,W0,N,N,T:.:NetCache:4.1
+
 32850:64:1:64:N,W1,N,N,T,N,N,S,M*:.:NetCache:Data OnTap 5.x
-16384:64:1:64:M1460,N,N,S,N,W0,N:.:NetCache:5.3.1 (1)
-65535:64:0:64:M1460,N,N,S,N,W3,N,N,T:.:NetCache:5.3.1 (2)
-65535:64:0:60:M1460,N,W0,N,N,T:.:CacheFlow:CacheOS (?)
-8192:64:1:64:M1460,N,N,S,N,W0,N,N,T:.:NetCache:5.2.1
+
+65535:64:0:60:M1460,N,W0,N,N,T:.:CacheFlow:CacheOS ?
+8192:64:0:60:M1380,N,N,N,N,N,N,T:.:CacheFlow:CacheOS 1.1
+
 S4:64:0:48:M1460,N,N,S:.:Cisco:Content Engine
 
 27085:128:0:40:.:.:Dell:PowerApp cache (Linux-based)
@@ -614,6 +688,8 @@ S23:64:1:64:N,W1,N,N,T,N,N,S,M1460:.:SymbianOS:7
 S1:255:0:44:M346:.:Contiki:1.1-rc0
 
 4096:128:0:44:M1460:.:Sega:Dreamcast Dreamkey 3.0
+T5:64:0:44:M536:.:Sega:Dreamcast HKT-3020 (browser disc 51027)
+S22:64:1:44:M1460:.:Sony:Playstation 2 (SOCOM?)
 
 S12:64:0:44:M1452:.:AXIS:Printer Server 5600 v5.64
 
@@ -621,23 +697,24 @@ S12:64:0:44:M1452:.:AXIS:Printer Server 5600 v5.64
 # Fancy signatures #
 ####################
 
-1024:64:0:40:.:.:*NMAP:syn scan (1)
-2048:64:0:40:.:.:*NMAP:syn scan (2)
-3072:64:0:40:.:.:*NMAP:syn scan (3)
-4096:64:0:40:.:.:*NMAP:syn scan (4)
+1024:64:0:40:.:.:-*NMAP:syn scan (1)
+2048:64:0:40:.:.:-*NMAP:syn scan (2)
+3072:64:0:40:.:.:-*NMAP:syn scan (3)
+4096:64:0:40:.:.:-*NMAP:syn scan (4)
 
-1024:64:0:60:W10,N,M265,T:EP:*NMAP:OS detection probe (1)
-2048:64:0:60:W10,N,M265,T:EP:*NMAP:OS detection probe (2)
-3072:64:0:60:W10,N,M265,T:EP:*NMAP:OS detection probe (3)
-4096:64:0:60:W10,N,M265,T:EP:*NMAP:OS detection probe (4)
+1024:64:0:60:W10,N,M265,T,E:P:-*NMAP:OS detection probe (1)
+2048:64:0:60:W10,N,M265,T,E:P:-*NMAP:OS detection probe (2)
+3072:64:0:60:W10,N,M265,T,E:P:-*NMAP:OS detection probe (3)
+4096:64:0:60:W10,N,M265,T,E:P:-*NMAP:OS detection probe (4)
 
-1024:64:0:60:W10,N,M265,T:EPF:*NMAP:OS detection probe w/flags (1)
-2048:64:0:60:W10,N,M265,T:EPF:*NMAP:OS detection probe w/flags (2)
-3072:64:0:60:W10,N,M265,T:EPF:*NMAP:OS detection probe w/flags (3)
-4096:64:0:60:W10,N,M265,T:EPF:*NMAP:OS detection probe w/flags (4)
+1024:64:0:60:W10,N,M265,T,E:PF:-*NMAP:OS detection probe w/flags (1)
+2048:64:0:60:W10,N,M265,T,E:PF:-*NMAP:OS detection probe w/flags (2)
+3072:64:0:60:W10,N,M265,T,E:PF:-*NMAP:OS detection probe w/flags (3)
+4096:64:0:60:W10,N,M265,T,E:PF:-*NMAP:OS detection probe w/flags (4)
 
-# UFO:
-56922:128:0:40:.:A:@Mysterious:FTP (?) scan tool
+# UFO - see tmp/*:
+56922:128:0:40:.:A:-@Mysterious:port scanner (?)
+5792:64:1:60:M1460,S,T,N,W0:T:-@Mysterious:NAT device (2nd tstamp)
 
 #####################################
 # Generic signatures - just in case #
@@ -646,6 +723,7 @@ S12:64:0:44:M1452:.:AXIS:Printer Server 5600 v5.64
 *:128:1:52:M*,N,W0,N,N,S:.:@Windows:XP/2000 (RFC1323 no tstamp)
 *:128:1:64:M*,N,W0,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323)
 *:128:1:64:M*,N,W*,N,N,T0,N,N,S:.:@Windows:XP (RFC1323, w+)
+*:128:1:48:M536,N,N,S:.:@Windows:98
 *:128:1:48:M*,N,N,S:.:@Windows:XP/2000
 
 

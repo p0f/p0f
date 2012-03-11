@@ -1,0 +1,95 @@
+
+Version 2.0.2:
+--------------
+
+  Cleanup of the RST mess in p0fr.fp and p0f.c parser.
+
+  Added isprint() text preview for -x mode.
+
+  [BUG] Fixed packet size reporting and matching for packets over 255 bytes 
+  (_u8 -> _u16).
+
+  Extended RST+ACK to also cover plain RST, added some sane explanations
+  of the purpose of each mode. Clarification of the RST vs RST+ACK
+  occurences; test/sendack.c added.
+
+  Added -R option for RST+ACK fingerprinting. Created an empty database.
+  Moved databases from /etc to /etc/p0f/
+
+  Windows memory leak mystery solved.
+
+  No longer using pcap timeouts for anything. They suck. I first wanted
+  to use SIGALRM with no SA_RESTART, but it's broken on Linux on this
+  particular syscall. Fortunately, I spotted an mis-documented pcap_fileno
+  and can now use select(). I just hope it won't break.
+
+  Note to self: despite of the documentation saying pcap_open_live with
+  timeout 0 will simply never timeout (which is irrelevant for
+  pcap_loop anyway), it does not work on FreeBSD, inhibiting all packet
+  processing instead. Works fine on Linux. Go figure.
+
+  Some minor p0fq fixes to prevent warnings.
+
+  Added some SYN+ACK signatures from rfp (p0fa.fp). Hooray!
+  p0fa.fp is now official. Moved from test/ to ., etc. README updated.
+
+  [BUG] Fixed the default TTL for IRIX and Tru64 (60), added a note to 
+  p0f.fp, fixed TTL checker to also support %30 values.
+  
+  [BUG] Fixed query mode lookup. The old code didn't handle reverse
+  lookups properly.
+
+  Masquerade scoring data is now available via the query interface. 
+  P0fq utility updated to handle this.
+
+  Dropped /bin/bash from p0frep, /bin/sh would suffice.
+
+  Added a new -c option for -M and -Q cache size scaling, packet ratio 
+  information on Ctrl-C to help estimate the right parameter. 
+
+  Extra masquerade detection flags: -T for threshold, -V for detailed
+  flag breakdown; masquerade reporting now recognizes -r.
+
+  The new -w option writes all matching packets to a pcap file (regardless
+  of -K and -U settings).
+
+  Added -M option (unix only until p0f-query.c gets ported). This option
+  enables advanced masquerade detection based on the cyclic buffer
+  used by -Q. Added - signature flag to the config file. Some 
+  documentation for the new functionality.
+
+  [BUG] Cleaned up the -K and -U semantics with -Q.
+
+  Replaced some single-character printfs with putchars in signature
+  reporting code (should be a tad faster). Added signature check
+  reporting, generic signature count and some other minor tweaks.
+
+  The new -x option provides a hexadecimal TCP/IP packet dump. Useful
+  when comparing two colliding fingerprints to find some differences
+  not covered by the current quirks set.
+
+  PPPoE interface is now handled correctly on NetBSD.
+
+  Added a shoddy manpage and updated makefiles.
+
+  Removed E quirk and added E to the regular options; removed needless EOL 
+  append code from the parser. Breaks the old signature format in some
+  rare cases, but the old quirk is still recognized, and the user will be 
+  advised to change it. 
+
+  [BUG] Fixed ? option parsing bug that prevented RISC OS signature from
+  working (and would prevent all ? signatures from working, should there
+  be any other ;-).
+
+  New signatures and other database additions, of course.
+
+  [BUG] Fixed a very minor parser bug that could cause it to loop over
+  an unknown option with a declared length of zero. This is not a DoS
+  condition, because the parser would quit the loop after parsing max. 16 
+  options anyway.
+
+Version 2.0.1 (2003/09/03):
+---------------------------
+
+  Initial stable release after a complete rewrite; some of the
+  changes are pointed out in README.

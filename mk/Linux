@@ -14,6 +14,8 @@ CFLAGS  = -O3 -Wall -fomit-frame-pointer -funroll-loops
 FILE	= p0f
 
 all: $(FILE) strip	
+	@echo ">> You can also try 'make p0fq' to compile a sample query"
+	@echo ">> client (see README for more information)."
 
 static: $(FILE)-static
 
@@ -26,17 +28,22 @@ $(FILE)-static: $(FILE).c
 strip:
 	strip $(FILE) 2>/dev/null || true
 
+p0fq: test/p0fq
+
+sendack: test/sendack
+
 clean:
-	rm -f core core.[0123456789]* *~ *.o $(FILE) a.out $(FILE)-static
+	rm -f core core.[0123456789]* *~ *.o $(FILE) a.out $(FILE)-static \
+	  test/p0fq test/sendack
 
 publish: clean
 	cd ..;tar cfvz /tmp/p0f.tgz p0f
-	scp -p /tmp/p0f.tgz lcamtuf@coredump.cx:/export/www/lcamtuf/p0f-beta.tgz
+	scp -p /tmp/p0f.tgz lcamtuf@coredump.cx:/export/www/lcamtuf/p0f-devel.tgz
 	rm -f /tmp/p0f.tgz
 	
 install: $(FILE)
 	cp -f $(FILE) /usr/sbin/
-	cp -f p0frep  /usr/sbin/
-	cp -f p0f.fp  /etc/
-	#cp -f p0f.1   /usr/man/man1/
-
+	cp -f p0frep /usr/sbin/
+	mkdir /etc/p0f || true
+	cp -f p0f.fp p0fa.fp p0fr.fp /etc/p0f/
+	cp -f p0f.1 /usr/man/man1/

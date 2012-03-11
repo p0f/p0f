@@ -1,0 +1,135 @@
+#
+# p0f - SYN+ACK fingerprints
+# --------------------------
+#
+# .-------------------------------------------------------------------------.
+# | The purpose of this file is to cover signatures for outgoing TCP/IP     |
+# | connections (SYN+ACK packets). This mode of operation can be enabled    |
+# | with -A option. Please refer to p0f.fp for information on the metrics   |
+# | used to create a signature, and for a guide on adding new entries to    |
+# | those files. This database is somewhat neglected, and is looking for a  |
+# | caring maintainer.                                                      |
+# `-------------------------------------------------------------------------'
+#
+# (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
+# Plenty of signatures contributed by rain forest puppy <rfp@wiretrip.net>
+#
+# Submit all additions to the authors. Read p0f.fp before adding any
+# signatures. Run p0f -A -C after making any modifications. This file is
+# NOT compatible with SYN or RST+ modes. Use only with -A option.
+#
+# NOTE: Some systems would have different SYN+ACK fingerprints depending
+# on the system that sent SYN. More specifically, RFC1323, RFC2018 and
+# RFC1644 extensions sometimes show up only if SYN had them enabled.
+#
+# Feel like contributing? You can run p0f -A -K, then test/tryid -iR nnn...
+#
+# Differences in comparison to p0f.fp data:
+#
+# - 'A' quirk would be present on almost every signature here. ACK number
+#   is unusual for SYN packets, but is a commonplace in SYN+ACK packets,
+#   of course. It is still possible to have a signature without 'A', when
+#   the ACK flag is present but the value is zero - this, however, is
+#   very uncommon.
+#
+# - 'T' quirk would show up on almost all signatures for systems implementing
+#   RFC1323. The second timestamp is only unusual for SYN packets. SYN+ACK
+#   are expected to have it set.
+#
+
+##########################
+# Standard OS signatures #
+##########################
+
+# ---------------- Linux -------------------
+
+32736:64:0:44:M*:A:Linux:2.0
+S22:64:1:60:M*,S,T,N,W0:AT:Linux:2.2
+S22:64:1:52:M*,N,N,S,N,W0:A:Linux:2.2 w/o timestamps
+
+5792:64:1:60:M*,S,T,N,W0:AT:Linux:older 2.04
+5792:64:1:60:M*,S,T,N,W0:ZAT:Linux:recent 2.4 (1)
+S4:64:1:44:M*:ZA:Linux:recent 2.4 (2)
+5792:64:1:44:M*:ZA:Linux:recent 2.4 (3)
+
+S4:64:1:52:M*,N,N,S,N,W0:ZA:Linux:2.4 w/o timestamps
+
+# --------------- Windows ------------------
+
+65535:128:1:64:M*,N,W0,N,N,T0,N,N,S:A:Windows:2000 SP4
+S12:128:1:64:M*,N,W0,N,N,T0,N,N,S:A:Windows:2000 (SP1+)
+S6:128:1:44:M*:A:Windows:NT 4.0 SP1+
+65535:128:1:48:M*,N,N,S:A:Windows:98 (SE)
+65535:128:1:44:M*:A:Windows:2000 (1)
+16616:128:1:44:M*:A:Windows:2003
+16384:128:1:44:M*:A:Windows:2000 (2)
+S16:128:1:44:M*:A:Windows:2000 (3)
+
+# ----------------- HP/UX ------------------
+
+32768:64:1:44:M*:A:HPUX:10.20
+
+# ----------------- Tru64 ------------------
+
+S23:60:0:48:M*,N,W0:A:Tru64:5.0 (1)
+65535:64:0:44:M*:A:Tru64:5.0 (2)
+
+# ----------------- Novell -----------------
+
+6144:128:1:52:M*,W0,N,S,N,N:A:Novell:Netware 6.0 (SP3)
+32768:128:1:44:M*:A:Novell:Netware 5.1
+
+# ------------------ IRIX ------------------
+
+60816:60:1:60:M*,N,W0,N,N,T:AT:IRIX:6.5.0
+
+# ----------------- Solaris ----------------
+
+49232:64:1:64:N,N,T,M*,N,W0,N,N,S:AT:Solaris:9
+S1:255:1:60:N,N,T,N,W0,M*:AT:Solaris:7
+24656:64:1:44:M*:A:Solaris:8
+
+# ----------------- FreeBSD ----------------
+
+65535:64:1:60:M*,N,W1,N,N,T:AT:FreeBSD:5.0
+57344:64:1:44:M*:A:FreeBSD:4.6-4.8
+65535:64:1:44:M*:A:FreeBSD:4.4
+
+57344:64:1:48:M1460,N,W0:A:FreeBSD:4.6-4.8 (wscale)
+57344:64:1:60:M1460,N,W0,N,N,T:AT:FreeBSD:4.6-4.8 (RFC1323)
+
+# ------------------- AIX ------------------
+
+S17:255:1:44:M536:A:AIX:4.2
+
+# ------------------ BSD/OS ----------------
+
+S6:64:1:60:M1460,N,W0,N,N,T:AT:BSD/OS:4.0.x
+
+# ------------------ OS/390 ----------------
+
+2048:64:0:44:M1460:A:OS/390:?
+
+###########################################
+# Appliance / embedded / other signatures #
+###########################################
+
+16384:64:1:44:M1460:A:F5:BigIP LB 4.1.x (sometimes FreeBSD)
+4128:255:0:44:M*:ZA:Cisco:Catalyst 2900 12.0(5)
+4096:60:0:44:M*:A:Brother:HL-1270N
+S1:30:0:44:M1730:A:Cyclades:PR3000
+8192:64:1:44:M1460:A:NetApp:Data OnTap 6.x
+5792:64:1:60:W0,N,N,N,T,M1460:ZAT:FortiNet:FortiGate 50
+S1:64:1:44:M1460:A:NetCache:5.3.1
+S1:64:0:44:M512:A:Printer:controller (?)
+4096:128:0:40:.:A:Sequent:DYNIX 4.2.x
+S16:64:0:44:M512:A:3Com:NBX PBX (BSD/OS 2.1)
+16000:64:0:44:M1442:A:CastleNet:DSL router
+S2:64:0:44:M32728:A:D-Link:DSL-500
+S4:60:0:44:M1460:A:HP:JetDirect A.05.32
+8576:64:1:44:M*:A:Raptor:firewall
+
+# Whatever they run. EOL boys...
+S6:128:1:48:M1460,E:PA:@Slashdot:or BusinessWeek (???)
+
+

@@ -11,6 +11,8 @@ CFLAGS  = -O3 -Wall -fomit-frame-pointer -funroll-loops
 FILE    = p0f
 
 all: $(FILE) 
+	@echo ">> You can also try 'make p0fq' to compile a sample query"
+	@echo ">> client (see README for more information)."
 
 static: $(FILE)-static 
 
@@ -20,11 +22,17 @@ $(FILE): $(FILE).c
 $(FILE)-static: $(FILE).c
 	$(CC) -static $(CFLAGS) -o $@ $(FILE).c $(LIBS)
 
+p0fq: test/p0fq
+
+sendack: test/sendack
+
 clean:
-	rm -f core core.[0123456789]* *~ *.o $(FILE) a.out $(FILE)-static
+	rm -f core core.[0123456789]* *~ *.o $(FILE) a.out $(FILE)-static \
+	  test/p0fq test/sendack
 
 install: $(FILE)
 	cp -f $(FILE) /usr/sbin/
-	cp -f p0frep  /usr/sbin/
-	cp -f p0f.fp  /etc/
-	#cp -f p0f.1   /usr/man/man1/
+	cp -f p0frep /usr/sbin/
+	mkdir /etc/p0f || true
+	cp -f p0f.fp p0fa.fp p0fr.fp /etc/p0f/
+	cp -f p0f.1 /usr/man/man1/
