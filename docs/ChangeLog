@@ -1,3 +1,16 @@
+Version 3.01b:
+--------------
+
+Bug fixes:
+
+  - 'Date' comparisons for server sigs now work as expected.
+
+  - Bad TS reading now allowed on initial SYN (improves uptime detection).
+
+Improvements:
+
+  - New signatures.
+
 Version 3.00b:
 --------------
 

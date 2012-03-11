@@ -116,7 +116,7 @@ void http_init(void) {
 #define HDR_AL  2
 #define HDR_VIA 3
 #define HDR_XFF 4
-#define HDR_DAT 6
+#define HDR_DAT 5
 
   i = 0;
   while (req_optional[i].name) {
@@ -826,6 +826,11 @@ header_check:
              hdr_diff, recv_diff);
       score  += 4;
       reason |= NAT_APP_DATE;
+
+    } else {
+
+      DEBUG("[#] HTTP 'Date' distance seems fine (%lld in %lld sec).\n",
+             hdr_diff, recv_diff);
 
     }
 

@@ -651,6 +651,7 @@ sig   = 1:Host,Accept-Language=[zh-cn],Connection=[close],User-Agent:Accept,Acce
 sig   = 1:Host,Connection=[close],User-Agent,Accept-Language=[zh-cn,zh-tw],Accept-Encoding=[gzip],Accept=[*/*]:Accept-Charset:Baiduspider
 sig   = 1:Host,Connection=[close],User-Agent,Accept-Language=[tr-TR],Accept-Encoding=[gzip],Accept=[*/*]:Accept-Charset:Baiduspider
 sig   = 1:Host,Connection=[close],User-Agent,Accept-Encoding=[gzip],?Accept-Language=[zh-cn,zh-tw],Accept=[*/*]:Accept-Charset:Baiduspider
+sig   = 1:Host,Connection=[close],User-Agent,Accept-Encoding=[gzip],Accept-Language=[tr-TR],Accept=[*/*]:Accept-Charset:Baiduspider
 
 label = s:!:Googlebot:
 sys   = Linux
@@ -728,6 +729,10 @@ label = s:!:Yahoo Pipes:
 sys   = Linux
 sig   = 0:Client-IP,X-Forwarded-For,X-YQL-Depth,User-Agent,Host,Connection=[keep-alive],Via:Accept,Accept-Encoding,Accept-Language,Accept-Charset:Yahoo Pipes
 sig   = 1:Client-IP,X-Forwarded-For,X-YQL-Depth,User-Agent,Host,Via:Connection,Accept,Accept-Encoding,Accept-Language,Accept-Charset:Yahoo Pipes
+
+label = s:!:Google Web Preview:
+sys   = Linux
+sig   = 1:Referer,User-Agent,Accept-Encoding=[gzip,deflate],Host,X-Forwarded-For:Connection,Accept,Accept-Language,Accept-Charset:Web Preview
 
 ; --------------------------------
 ; Command-line tools and libraries

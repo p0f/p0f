@@ -1282,7 +1282,14 @@ void check_ts_tcp(u8 to_srv, struct packet_data* pk, struct packet_flow* f) {
 
   if (ffreq < MIN_TSCALE || ffreq > MAX_TSCALE) {
 
-    if (to_srv) f->cli_tps = -1; else f->srv_tps = -1;
+    /* Allow bad reading on SYN, as this may be just an artifact of IP
+       sharing or OS change. */
+
+    if (pk->tcp_type != TCP_SYN) {
+
+      if (to_srv) f->cli_tps = -1; else f->srv_tps = -1;
+
+    }
 
     DEBUG("[#] Bad %s TS frequency: %.02f Hz (%d ticks in %llu ms).\n",
           to_srv ? "client" : "server", ffreq, ts_diff, ms_diff);

@@ -9,7 +9,7 @@
 #
 
 PROGNAME="p0f"
-VERSION="3.00b"
+VERSION="3.01b"
 
 test "$CC" = "" && CC="gcc"
 
@@ -25,6 +25,8 @@ USE_LDFLAGS="-Wl,-z,relro -pie $BASIC_LDFLAGS"
 
 if [ "$OSTYPE" = "cygwin" ]; then
   USE_LIBS="-lwpcap $LIBS"
+elif [ "$OSTYPE" = "solaris" ]; then
+  USE_LIBS="-lsocket -lnsl $LIBS"
 else
   USE_LIBS="-lpcap $LIBS"
 fi
@@ -61,7 +63,7 @@ if [ "$1" = "clean" -o "$1" = "publish" ]; then
       exit 1
     fi
 
-    TARGET="/var/www/lcamtuf/$PROGNAME-$VERSION.tgz"
+    TARGET="/var/www/lcamtuf/p0f3/$PROGNAME-devel.tgz"
 
     echo "[*] Creating $TARGET..."
 
