@@ -1,8 +1,0 @@
-Huh?!
-
-69.15.35.161 - UNKNOWN [S4:44:1:60:M1452,S,T,N,W0:UA:?:?] (NAT!) (up: 0 hrs) ->
-217.8.32.51:80 (link: pppoe (DSL))
-
-69.15.35.161 - - [05/Sep/2003:13:51:21 +0200] "GET /p0f.tgz HTTP/1.1" 200 53102
-"-" "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5b) Gecko/20030827"
-[lcamtuf.coredump.cx]

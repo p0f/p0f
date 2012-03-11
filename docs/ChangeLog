@@ -1,0 +1,36 @@
+Version 3.00b:
+--------------
+
+Bug fixes:
+
+  - Alignment-related SIGBUS non-x86 fixed.
+
+  - Cache expiration algorithm now works as expected.
+
+  - p0f -L no longer leads to NULL ptr when no interfaces visible.
+
+  - Greppable output format no longer mixes up cli and srv fields.
+
+  - Added '|' to banned characters in reported header values.
+
+Improvements:
+
+  - Multiple new HTTP and TCP signatures.
+
+  - Improved MSS/MTU matching to account for peer MTU.
+
+  - New HTTP fingerprinting logic with optional headers (? prefix).
+
+  - Memory leak detection added (but nothing found).
+
+  - API now indicates the value of 'generic' / 'fuzzy' fields and several
+    other parameters.
+
+  - General style improvements.
+
+  - Delay added to p0f-sendsyn to aid with packet ordering.
+
+Version 3.00-rc0:
+-----------------
+
+  - Initial public release.

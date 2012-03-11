@@ -1,35 +1,46 @@
 /*
+   p0f - type definitions and minor macros
+   ---------------------------------------
 
-   p0f - type definitions
-   ----------------------
-  
-   Short and portable names for various integer types.
+   Copyright (C) 2012 by Michal Zalewski <lcamtuf@coredump.cx>
 
-   Copyright (C) 2003-2006 by Michal Zalewski <lcamtuf@coredump.cx>
+   Distributed under the terms and conditions of GNU LGPL.
 
-*/
+ */
 
 #ifndef _HAVE_TYPES_H
 #define _HAVE_TYPES_H
 
-typedef unsigned char		_u8;
-typedef unsigned short		_u16;
-typedef unsigned int		_u32;
+#include <stdint.h>
 
-#ifdef WIN32
-typedef unsigned __int64	_u64;
+typedef uint8_t  u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef int8_t   s8;
+typedef int16_t  s16;
+typedef int32_t  s32;
+typedef int64_t  s64;
+
+#ifndef MIN
+#  define MIN(_a,_b) ((_a) > (_b) ? (_b) : (_a))
+#  define MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))
+#endif /* !MIN */
+
+/* Macros for non-aligned memory access. */
+
+#ifdef ALIGN_ACCESS
+#  include <string.h>
+#  define RD16(_val)  ({ u16 _ret; memcpy(&_ret, &(_val), 2); _ret; })
+#  define RD32(_val)  ({ u32 _ret; memcpy(&_ret, &(_val), 4); _ret; })
+#  define RD16p(_ptr) ({ u16 _ret; memcpy(&_ret, _ptr, 2); _ret; })
+#  define RD32p(_ptr) ({ u32 _ret; memcpy(&_ret, _ptr, 4); _ret; })
 #else
-typedef unsigned long long	_u64;
-#endif /* ^WIN32 */
-
-typedef signed char		_s8;
-typedef signed short		_s16;
-typedef signed int		_s32;
-
-#ifdef WIN32
-typedef signed __int64	_s64;
-#else
-typedef signed long long	_s64;
-#endif /* ^WIN32 */
+#  define RD16(_val)  (_val)
+#  define RD32(_val)  (_val)
+#  define RD16p(_ptr) (*((u32*)(_ptr)))
+#  define RD32p(_ptr) (*((u32*)(_ptr)))
+#endif /* ^ALIGN_ACCESS */
 
 #endif /* ! _HAVE_TYPES_H */

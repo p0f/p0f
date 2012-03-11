@@ -1,33 +1,21 @@
 #
-# p0f - dummy makefile
-# --------------------
+# p0f - make wrapper
+# ------------------
 #
-# Just for convenience.
-# 
-# (C) Copyright 2000-2006 by Michal Zalewski <lcamtuf@coredump.cx>
+# Copyright (C) 2012 by Michal Zalewski <lcamtuf@coredump.cx>
+#
+# Distributed under the terms and conditions of GNU LGPL.
 #
 
-all: 
-	./Build $@
+all:
+	@./build.sh all
 
-static: 
-	./Build $@
+debug:
+	@./build.sh debug
 
 clean:
-	./Build $@
+	@./build.sh clean
 
 publish:
-	./Build $@
-
-p0fq:
-	./Build $@
-
-p0fping:
-	./Build $@
-
-tools:
-	./Build $@
-
-install:
-	./Build $@
+	@./build.sh publish
 

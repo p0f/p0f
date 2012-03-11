@@ -1,0 +1,13 @@
+This directory contains several helper tools mentioned in ../README:
+
+  p0f-sendsyn.c   - a tool for gathering new SYN+ACK signatures
+
+  p0f-sendsyn6.c  - the same, for IPv6 desstinations
+
+  p0f-client.c    - simple API client tool for p0f -s mode
+
+To build any of these programs, simply type 'make progname', e.g.:
+
+  make p0f-sendsyn
+
+If that fails, you can drop me a mail at lcamtuf@coredump.cx.

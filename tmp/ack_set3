@@ -1,6 +1,0 @@
-This looks more reasonable. Perhaps Windows?
-
-<Thu Sep  4 20:18:44 2003> 81.211.124.39:2295 - UNKNOWN [58944:52:0:64:M1436,N,W2,N,N,T0,N,N,S:A:?:?]
-  -> 217.8.32.51:80 (link: IPSec/GRE)
-  -- EXTRA TCP VALUES: ACK=0xeff28b37, UNUSED=0, URG=0x0 (flags = 2)
-

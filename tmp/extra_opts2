@@ -1,7 +1,0 @@
-  -- EXTRA TCP OPTIONS (packet below): 00 00 00
-<Thu Sep  4 08:33:00 2003> 200.52.187.65:65450 - UNKNOWN [S12:109:1:48:M1380:EP:?:?] (NAT!)
-  -> 217.8.32.51:80 (link: GPRS or FreeS/WAN)
---
-  -- EXTRA TCP OPTIONS (packet below): 00 00 00
-<Thu Sep  4 08:34:38 2003> 200.52.187.65:2543 - UNKNOWN [S12:109:1:48:M1380:EP:?:?] (NAT!)
-  -> 217.8.32.51:80 (link: GPRS or FreeS/WAN)

@@ -1,0 +1,27 @@
+These need to be investigated:
+
+# AVM FritzBox 7112 w/ BusyBox Linux - sendsyn response
+4:64+0:0:1460:mss*4,0:mss:df:0
+4:64+0:0:1460:mss*4,1:mss,nop,ws:df:0
+4:64+0:0:1460:mss*4,1:mss,nop,nop,sok,nop,ws:df:0
+4:64+0:0:1460:mss*4,1:mss,sok,ts,nop,ws:df:0
+4:64+0:0:1460:mss*4,1:mss,nop,nop,ts,nop,ws:df:0
+4:64+0:0:1460:mss*4,0:mss,nop,nop,sok:df:0
+4:64+0:0:1460:mss*4,0:mss,sok,ts:df:0
+4:64+0:0:1460:mss*4,0:mss,nop,nop,ts:df:0
+
+# LaCIE Network storage - sendsyn response
+4:64+0:0:1460:mss*4,0:mss,nop,nop,sok:df:0
+4:64+0:0:1460:mss*4,0:mss,sok,ts:df:0
+4:64+0:0:1460:mss*4,0:mss,nop,nop,ts:df:0
+
+# HP LaserJet printer CP1515 - sendsyn response
+4:64+0:0:*:mss*7,0:mss,nop,nop,sok::0
+4:64+0:0:*:mss*7,0:mss,nop,nop,sok,nop,nop,ts::0
+4:64+0:0:*:mss*7,0:mss,nop,nop,ts::0
+
+# HP LaserJet printer CP1515 - http response
+1:Server,Transfer-Encoding=[chunked],Content-Type,?Expires,?Cache-Control:Connection,Keep-Alive,Accept-Ranges,Date:Virata-EmWeb/R6_2_1
+1:Server,?Content-Length,Content-Type,?ETag,?Last-Modified,?Cache-Control:Connection,Keep-Alive,Accept-Ranges,Date:Virata-EmWeb/R6_2_1
+1:Server,Transfer-Encoding=[chunked],Content-Type,?Expires,?Cache-Control:Connection,Keep-Alive,Accept-Ranges,Date:Virata-EmWeb/R6_2_1
+

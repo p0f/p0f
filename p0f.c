@@ -1,1883 +1,1224 @@
 /*
+   p0f - main entry point and all the pcap / unix socket innards
+   -------------------------------------------------------------
 
-  p0f - passive OS fingerprinting 
-  -------------------------------
+   Copyright (C) 2012 by Michal Zalewski <lcamtuf@coredump.cx>
 
-  "If you sit down at a poker game and don't see a sucker, 
-  get up. You're the sucker."
+   Distributed under the terms and conditions of GNU LGPL.
 
-  (C) Copyright 2000-2006 by Michal Zalewski <lcamtuf@coredump.cx>
+ */
 
-  WIN32 port (C) Copyright 2003-2004 by Michael A. Davis <mike@datanerds.net>
-             (C) Copyright 2003-2004 by Kirby Kuehl <kkuehl@cisco.com>
-
-*/
-
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-
-#ifndef WIN32
-#  include <netinet/in.h>
-#  include <arpa/inet.h>
-#  include <unistd.h>
-#  include <netdb.h>
-#  include <sys/socket.h>
-#  include <sys/un.h>
-#  include <pwd.h>
-#  include <grp.h>
-#else
-#  include "getopt.h"
-#  include <stdarg.h>
-#  pragma comment (lib, "wpcap.lib")
-#endif /* ^WIN32 */
+#define _GNU_SOURCE
+#define _FROM_P0F
 
 #include <stdio.h>
-#include <pcap.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <signal.h>
-
-#ifdef USE_BPF
-#include USE_BPF
-#else
-#include <pcap-bpf.h>
-#endif /* ^USE_BPF */
-
+#include <getopt.h>
+#include <errno.h>
+#include <dirent.h>
+#include <pwd.h>
+#include <grp.h>
+#include <poll.h>
 #include <time.h>
-#include <ctype.h>
+#include <locale.h>
 
-/* #define DEBUG_HASH - display signature hash table stats */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <sys/un.h>
+#include <sys/fcntl.h>
+#include <sys/stat.h>
+#include <sys/file.h>
+#include <sys/wait.h>
+#include <netinet/in.h>
 
-#include "config.h"
+#include <pcap.h>
+
+#ifdef NET_BPF
+#  include <net/bpf.h>
+#else
+#  include <pcap-bpf.h>
+#endif /* !NET_BPF */
+
 #include "types.h"
+#include "debug.h"
+#include "alloc-inl.h"
+#include "process.h"
+#include "readfp.h"
+#include "api.h"
 #include "tcp.h"
-#include "mtu.h"
-#include "tos.h"
-#include "fpentry.h"
-#include "p0f-query.h"
-#include "crc32.h"
+#include "fp_http.h"
+#include "p0f.h"
 
-#ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL 0
-#endif /* ! MSG_NOSIGNAL */
+#ifndef PF_INET6
+#  define PF_INET6          10
+#endif /* !PF_INET6 */
 
-static pcap_dumper_t *dumper;
+#ifndef O_NOFOLLOW
+#  define O_NOFOLLOW 0
+#endif /* !O_NOFOLLOW */
 
-#ifdef WIN32
+#ifndef O_LARGEFILE
+#  define O_LARGEFILE 0
+#endif /* !O_LARGEFILE */
 
-static inline void debug(_u8* format, ...) {
-  _u8 buff[1024];
-  va_list args;
-  va_start(args, format);
-  memset(buff, 0, sizeof(buff));
-  _vsnprintf( buff, sizeof(buff) - 1, format, args);
-  fprintf(stderr, buff);
-  va_end(args);
-}
+static u8 *use_iface,                   /* Interface to listen on             */
+          *orig_rule,                   /* Original filter rule               */
+          *switch_user,                 /* Target username                    */
+          *log_file,                    /* Binary log file name               */
+          *api_sock,                    /* API socket file name               */
+          *fp_file,                     /* Location of p0f.fp                 */
+          *read_file;                   /* File to read pcap data from        */
 
-static inline void fatal(_u8* format, ...) {
-  _u8 buff[1024];
-  va_list args;	
-  va_start(args, format);
-  memset(buff, 0, sizeof(buff));
-  vsnprintf( buff, sizeof(buff) - 1, format, args);
-  fprintf(stderr, "[-] ERROR: %s", buff);
-  va_end(args);
+static u32
+  api_max_conn    = API_MAX_CONN;       /* Maximum number of API connections  */
+
+u32
+  max_conn        = MAX_CONN,           /* Connection entry count limit       */
+  max_hosts       = MAX_HOSTS,          /* Host cache entry count limit       */
+  conn_max_age    = CONN_MAX_AGE,       /* Maximum age of a connection entry  */
+  host_idle_limit = HOST_IDLE_LIMIT;    /* Host cache idle timeout            */
+
+static struct api_client *api_cl;       /* Array with API client state        */
+          
+static s32 null_fd = -1,                /* File descriptor of /dev/null       */
+           api_fd = -1;                 /* API socket descriptor              */
+
+static FILE* lf;                        /* Log file stream                    */
+
+static u8 stop_soon;                    /* Ctrl-C or so pressed?              */
+
+u8 daemon_mode;                         /* Running in daemon mode?            */
+
+static u8 set_promisc;                  /* Use promiscuous mode?              */
+         
+static pcap_t *pt;                      /* PCAP capture thingy                */
+
+s32 link_type;                          /* PCAP link type                     */
+
+u32 hash_seed;                          /* Hash seed                          */
+
+static u8 obs_fields;                   /* No of pending observation fields   */
+
+/* Memory allocator data: */
+
+#ifdef DEBUG_BUILD
+struct TRK_obj* TRK[ALLOC_BUCKETS];
+u32 TRK_cnt[ALLOC_BUCKETS];
+#endif /* DEBUG_BUILD */
+
+#define LOGF(_x...) fprintf(lf, _x)
+
+/* Display usage information */
+
+static void usage(void) {
+
+  ERRORF(
+
+"Usage: p0f [ ...options... ] [ 'filter rule' ]\n"
+"\n"
+"Network interface options:\n"
+"\n"
+"  -i iface  - listen on the specified network interface\n"
+"  -r file   - read offline pcap data from a given file\n"
+"  -p        - put the listening interface in promiscuous mode\n"
+"  -L        - list all available interfaces\n"
+"\n"
+"Operating mode and output settings:\n"
+"\n"
+"  -f file   - read fingerprint database from 'file' (%s)\n"
+"  -o file   - write information to the specified log file\n"
+#ifndef __CYGWIN__
+"  -s name   - answer to API queries at a named unix socket\n"
+#endif /* !__CYGWIN__ */
+"  -u user   - switch to the specified unprivileged account and chroot\n"
+"  -d        - fork into background (requires -o or -s)\n"
+"\n"
+"Performance-related options:\n"
+"\n"
+#ifndef __CYGWIN__
+"  -S limit  - limit number of parallel API connections (%u)\n"
+#endif /* !__CYGWIN__ */
+"  -t c,h    - set connection / host cache age limits (%us,%um)\n"
+"  -m c,h    - cap the number of active connections / hosts (%u,%u)\n"
+"\n"
+"Optional filter expressions (man tcpdump) can be specified in the command\n"
+"line to prevent p0f from looking at incidental network traffic.\n"
+"\n"
+"Problems? You can reach the author at <lcamtuf@coredump.cx>.\n",
+
+    FP_FILE,
+#ifndef __CYGWIN__
+    API_MAX_CONN,
+#endif /* !__CYGWIN__ */
+    CONN_MAX_AGE, HOST_IDLE_LIMIT, MAX_CONN,  MAX_HOSTS);
+
   exit(1);
-}
-
-#else
-#  define debug(x...)	fprintf(stderr,x)
-#  define fatal(x...)	do { debug("[-] ERROR: " x); exit(1); } while (0)
-#endif /* ^WIN32 */
-
-#define pfatal(x)	do { debug("[-] ERROR: "); perror(x); exit(1); } while (0)
-
-static struct fp_entry sig[MAXSIGS];
-static _u32 sigcnt,gencnt;
-
-/* By hash */
-static struct fp_entry* bh[16];
-
-#define SIGHASH(tsize,optcnt,q,df) \
-	(( (_u8) (((tsize) << 1) ^ ((optcnt) << 1) ^ (df) ^ (q) )) & 0x0f)
-
-static _u8 *config_file,
-           *use_iface,
-           *use_dump,
-           *write_dump,
-	   *use_cache,
-#ifndef WIN32
-           *set_user,
-#endif /* !WIN32 */
-           *use_rule = "tcp[13] & 0x17 == 2";
-
-static _u32 query_cache = DEFAULT_QUERY_CACHE;
-static _s32 masq_thres;
-static _s32 capture_timeout = 1;
-
-static _u8 no_extra,
-           find_masq,
-	   masq_flags,
-           no_osdesc,
-           no_known,
-           no_unknown,
-           no_banner,
-           use_promisc,
-           add_timestamp,
-           header_len,
-           ack_mode,
-           rst_mode,
-           open_mode,
-           go_daemon,
-           use_logfile,
-           mode_oneline,
-           always_sig,
-           do_resolve,
-           check_collide,
-           full_dump,
-           use_fuzzy,
-           use_vlan,
-           payload_dump,
-           port0_wild;
-
-static pcap_t *pt;
-static struct bpf_program flt;
-
-/* Exports for p0f statistics */
-_u32 packet_count;
-_u8  operating_mode;
-_u32 st_time;
-_u32 file_cksum;
-
-
-static void die_nicely(_s32 sig) {
-  if (sig) debug("+++ Exiting on signal %d +++\n",sig);
-  if (pt) pcap_close(pt);
-  if (dumper) pcap_dump_close(dumper);
-
-  if (!no_banner && packet_count) {
-    float r = packet_count * 60;
-    
-    r /= (time(0) - st_time);
-
-    debug("[+] Average packet ratio: %0.2f per minute",r);
-
-    if (use_cache || find_masq)
-      debug(" (cache: %0.2f seconds).\n",query_cache * 60 / r);
-    else
-    debug(".\n");
-  }
-
-  exit(sig);
-}
-
-
-static void set_header_len(_u32 type) {
-
-  switch(type) {
-
-    case DLT_SLIP:
-    case DLT_RAW:  break;
-
-#ifdef DLT_C_HDLC
-    case DLT_C_HDLC:
-#endif
-
-    case DLT_NULL: header_len=4; break;
-
-    case DLT_EN10MB: header_len=14; break;
-
-#ifdef DLT_LOOP
-    case DLT_LOOP:
-#endif
-
-#ifdef DLT_PPP_SERIAL
-    case DLT_PPP_SERIAL: /* NetBSD oddity */
-#endif
-
-#ifdef DLT_PPP_ETHER
-    case DLT_PPP_ETHER:  /* PPPoE on NetBSD */
-        header_len=8;
-        break;
-#endif
-
-    case DLT_PPP:    header_len=4; break;
-
-    case DLT_IEEE802:
-      header_len=22;
-      break;
-
-#ifdef DLT_IEEE802_11
-    case DLT_IEEE802_11: header_len=32; break;
-#endif
-
-#ifdef DLT_PFLOG
-    case DLT_PFLOG:
-      header_len=28;
-      break;
-#endif
-
-#ifdef DLT_LINUX_SLL
-    case DLT_LINUX_SLL:
-      header_len=16;
-      break;
-#endif
-
-    default:
-      debug("[!] WARNING: Unknown datalink type %d, assuming no header.\n",type);
-      break;
-
-  }
 
 }
 
 
+/* Obtain hash seed: */
 
-static void usage(_u8* name) {
-  fprintf(stderr,
-          "\nUsage: %s [ -f file ] [ -i device ] [ -s file ] [ -o file ]\n"
+static void get_hash_seed(void) {
 
-#ifndef WIN32
-          "       [ -w file ] [ -Q sock [ -0 ] ] [ -u user ] [ -FXVNDUKASCMROqtpvdlrx ]\n"
-          "       [ -c size ] [ -T nn ] [ -e nn ] [ 'filter rule' ]\n"
-#else
-		  "       [ -w file ] [ -FXVNDUKASCMLROqtpvdlrx ]\n"
-		  "       [ -c size]  [ -T nn ] [ -e nn ] [ 'filter rule' ]\n"
-#endif /* ^WIN32 */
+  s32 f = open("/dev/urandom", O_RDONLY);
 
-          "  -f file   - read fingerprints from file\n"
-          "  -i device - listen on this device\n"
-          "  -s file   - read packets from tcpdump snapshot\n"
-          "  -o file   - write to this logfile (implies -t)\n"
-          "  -w file   - save packets to tcpdump snapshot\n"
-#ifndef WIN32
-          "  -u user   - chroot and setuid to this user\n"
-          "  -Q sock   - listen on local socket for queries\n"
-          "  -0        - make src port 0 a wildcard (in query mode)\n"
-#endif /* !WIN32 */
-          "  -e ms     - pcap capture timeout in milliseconds (default: 1)\n"
-          "  -c size   - cache size for -Q and -M options\n"
-          "  -M        - run masquerade detection\n"
-          "  -T nn     - set masquerade detection threshold (1-200)\n"
-          "  -V        - verbose masquerade flags reporting\n"
-          "  -F        - use fuzzy matching (do not combine with -R)\n"
-          "  -N        - do not report distances and link media\n"
-          "  -D        - do not report OS details (just genre)\n"
-          "  -U        - do not display unknown signatures\n"
-          "  -K        - do not display known signatures (for tests)\n"
-          "  -S        - report signatures even for known systems\n"
-          "  -A        - go into SYN+ACK mode (semi-supported)\n"
-          "  -R        - go into RST/RST+ACK mode (semi-supported)\n"
-          "  -O        - go into stray ACK mode (barely supported)\n"
-          "  -r        - resolve host names (not recommended)\n"
-          "  -q        - be quiet - no banner\n"
-          "  -v        - enable support for 802.1Q VLAN frames\n"
-          "  -p        - switch card to promiscuous mode\n"
-          "  -d        - daemon mode (fork into background)\n"
-          "  -l        - use single-line output (easier to grep)\n"
-          "  -x        - include full packet dump (for debugging)\n"
-          "  -X        - display payload string (useful in RST mode)\n"
-          "  -C        - run signature collision check\n"
-#ifdef WIN32
-          "  -L        - list all available interfaces\n"
-#endif /* ^WIN32 */
-          "  -t        - add timestamps to every entry\n\n"
-          "  'Filter rule' is an optional pcap-style BPF expression (man tcpdump).\n\n",name);
-  exit(1);
-}
+  if (f < 0) PFATAL("Cannot open /dev/urandom for reading.");
 
+#ifndef DEBUG_BUILD
 
-static _u8 problems;
+  /* In debug versions, use a constant seed. */
 
-static void collide(_u32 id) {
-  _u32 i,j;
-  _u32 cur;
+  if (read(f, &hash_seed, sizeof(hash_seed)) != sizeof(hash_seed))
+    FATAL("Cannot read data from /dev/urandom.");
 
-  if (sig[id].ttl % 32 && sig[id].ttl != 255 && sig[id].ttl % 30) {
-    problems=1;
-    debug("[!] Unusual TTL (%d) for signature '%s %s' (line %d).\n",
-          sig[id].ttl,sig[id].os,sig[id].desc,sig[id].line);
-  }
+#endif /* !DEBUG_BUILD */
 
-  for (i=0;i<id;i++) {
-
-    if (!strcmp(sig[i].os,sig[id].os) && 
-        !strcmp(sig[i].desc,sig[id].desc)) {
-      problems=1;
-      debug("[!] Duplicate signature name: '%s %s' (line %d and %d).\n",
-            sig[i].os,sig[i].desc,sig[i].line,sig[id].line);
-    }
-
-    /* If TTLs are sufficiently away from each other, the risk of
-       a collision is lower. */
-    if (abs((_s32)sig[id].ttl - (_s32)sig[i].ttl) > 25) continue;
-
-    if (sig[id].df ^ sig[i].df) continue;
-    if (sig[id].zero_stamp ^ sig[i].zero_stamp) continue;
-
-    /* Zero means >= PACKET_BIG */
-    if (sig[id].size) { if (sig[id].size ^ sig[i].size) continue; }
-      else if (sig[i].size < PACKET_BIG) continue;
-
-    if (sig[id].optcnt ^ sig[i].optcnt) continue;
-    if (sig[id].quirks ^ sig[i].quirks) continue;
-
-    switch (sig[id].wsize_mod) {
-
-      case 0: /* Current: const */
-
-        cur=sig[id].wsize;
-
-do_const:
-
-        switch (sig[i].wsize_mod) {
-       
-          case 0: /* Previous is also const */
-
-            /* A problem if values match */
-            if (cur ^ sig[i].wsize) continue; 
-            break;
-
-          case MOD_CONST: /* Current: const, prev: modulo (or *) */
-
-            /* A problem if current value is a multiple of that modulo */
-            if (cur % sig[i].wsize) continue;
-            break;
-
-          case MOD_MSS: /* Current: const, prev: mod MSS */
-
-            if (sig[i].mss_mod || sig[i].wsize *
-	       (sig[i].mss ? sig[i].mss : 1460 ) != cur)
-              continue;
-
-            break;
-
-          case MOD_MTU: /* Current: const, prev: mod MTU */
-
-            if (sig[i].mss_mod || sig[i].wsize * (
-	        (sig[i].mss ? sig[i].mss : 1460 )+40) != cur)
-              continue;
-
-            break;
-
-        }
-        
-        break;
-
-      case 1: /* Current signature is modulo something */
-
-        /* A problem only if this modulo is a multiple of the 
-           previous modulo */
-
-        if (sig[i].wsize_mod != MOD_CONST) continue;
-        if (sig[id].wsize % sig[i].wsize) continue;
-
-        break;
-
-      case MOD_MSS: /* Current is modulo MSS */
-  
-        /* There's likely a problem only if the previous one is close
-           to '*'; we do not check known MTUs, because this particular
-           signature can be made with some uncommon MTUs in mind. The
-           problem would also appear if current signature has a fixed
-           MSS. */
-
-        if (sig[i].wsize_mod != MOD_CONST || sig[i].wsize >= 8) {
-          if (!sig[id].mss_mod) {
-            cur = (sig[id].mss ? sig[id].mss : 1460 ) * sig[id].wsize;
-            goto do_const;
-          }
-          continue;
-        }
-
-        break;
-
-      case MOD_MTU: /* Current is modulo MTU */
-
-        if (sig[i].wsize_mod != MOD_CONST || sig[i].wsize <= 8) {
-          if (!sig[id].mss_mod) {
-            cur = ( (sig[id].mss ? sig[id].mss : 1460 ) +40) * sig[id].wsize;
-            goto do_const;
-          }
-          continue;
-        }
-  
-        break;
-
-    }
-
-    /* Same for wsc */
-    switch (sig[id].wsc_mod) {
-
-      case 0: /* Current: const */
-
-        cur=sig[id].wsc;
-
-        switch (sig[i].wsc_mod) {
-       
-          case 0: /* Previous is also const */
-
-            /* A problem if values match */
-            if (cur ^ sig[i].wsc) continue; 
-            break;
-
-          case 1: /* Current: const, prev: modulo (or *) */
-
-            /* A problem if current value is a multiple of that modulo */
-            if (cur % sig[i].wsc) continue;
-            break;
-
-        }
-        
-        break;
-
-      case MOD_CONST: /* Current signature is modulo something */
-
-        /* A problem only if this modulo is a multiple of the 
-           previous modulo */
-
-        if (!sig[i].wsc_mod) continue;
-        if (sig[id].wsc % sig[i].wsc) continue;
-
-        break;
-
-     }
-
-    /* Same for mss */
-    switch (sig[id].mss_mod) {
-
-      case 0: /* Current: const */
-
-        cur=sig[id].mss;
-
-        switch (sig[i].mss_mod) {
-       
-          case 0: /* Previous is also const */
-
-            /* A problem if values match */
-            if (cur ^ sig[i].mss) continue; 
-            break;
-
-          case 1: /* Current: const, prev: modulo (or *) */
-
-            /* A problem if current value is a multiple of that modulo */
-            if (cur % sig[i].mss) continue;
-            break;
-
-        }
-        
-        break;
-
-      case MOD_CONST: /* Current signature is modulo something */
-
-        /* A problem only if this modulo is a multiple of the 
-           previous modulo */
-
-        if (!sig[i].mss_mod) continue;
-        if ((sig[id].mss ? sig[id].mss : 1460 ) % 
-	    (sig[i].mss ? sig[i].mss : 1460 )) continue;
-
-        break;
-
-     }
-
-     /* Now check option sequence */
-
-    for (j=0;j<sig[id].optcnt;j++)
-      if (sig[id].opt[j] ^ sig[i].opt[j]) goto reloop;
-
-    problems=1;
-    debug("[!] Signature '%s %s' (line %d)\n"
-          "    is already covered by '%s %s' (line %d).\n",
-          sig[id].os,sig[id].desc,sig[id].line,sig[i].os,sig[i].desc,
-          sig[i].line);
-
-reloop:
-
-    ;
-
-  }
+  close(f);
 
 }
 
 
-static void load_config(_u8* file) {
-  _u32 ln=0;
-  _u8 buf[MAXLINE];
-  _u8* p;
-  FILE* c = fopen(file?file:(_u8*)
-            (ack_mode?SYNACK_DB:(rst_mode?RST_DB:(open_mode?OPEN_DB:SYN_DB))),
-            "r");
+/* Get rid of unnecessary file descriptors */
 
-  if (!c) {
-    if (!file) load_config(ack_mode? CONFIG_DIR "/" SYNACK_DB :
-                                     ( rst_mode ? CONFIG_DIR "/" RST_DB : 
-                                     ( open_mode ? CONFIG_DIR "/" OPEN_DB : 
-                                       CONFIG_DIR "/" SYN_DB )));
-      else pfatal(file);
+static void close_spare_fds(void) {
+
+  s32 i, closed = 0;
+  DIR* d;
+  struct dirent* de;
+
+  d = opendir("/proc/self/fd");
+
+  if (!d) {
+    /* Best we could do... */
+    for (i = 3; i < 256; i++) 
+      if (!close(i)) closed++;
     return;
   }
 
-  while ((p=fgets(buf,sizeof(buf),c))) {
-    _u32 l;
-
-    _u8 obuf[MAXLINE],genre[MAXLINE],desc[MAXLINE],quirks[MAXLINE];
-    _u8 w[MAXLINE],sb[MAXLINE];
-    _u8* gptr = genre;
-    _u32 t,d,s;
-    struct fp_entry* e;
-    
-    file_cksum ^= crc32(buf, strlen(buf));
-      
-    ln++;
-
-    /* Remove leading and trailing blanks */
-    while (isspace(*p)) p++;
-    l=strlen(p);
-    while (l && isspace(*(p+l-1))) *(p+(l--)-1)=0;
-	
-    /* Skip empty lines and comments */
-    if (!l) continue;
-    if (*p == '#') continue;
-
-    if (sscanf(p,"%[0-9%*()ST]:%d:%d:%[0-9()*]:%[^:]:%[^ :]:%[^:]:%[^:]",
-                  w,         &t,&d,sb,     obuf, quirks,genre,desc) != 8)
-      fatal("Syntax error in config line %d.\n",ln);
-
-    gptr = genre;
-
-    if (*sb != '*') {
-      if (open_mode) 
-        fatal("Packet size must be '*' in -O mode (line %d).\n",ln);
-      s = atoi(sb); 
-    } else s = 0;
-
-reparse_ptr:
-
-    switch (*gptr) {
-      case '-': sig[sigcnt].userland = 1; gptr++; goto reparse_ptr;
-      case '*': sig[sigcnt].no_detail = 1; gptr++; goto reparse_ptr;
-      case '@': sig[sigcnt].generic = 1; gptr++; gencnt++; goto reparse_ptr;
-      case 0: fatal("Empty OS genre in line %d.\n",ln);
-    }
-
-    sig[sigcnt].os     = strdup(gptr);
-    sig[sigcnt].desc   = strdup(desc);
-    sig[sigcnt].ttl    = t;
-    sig[sigcnt].size   = s;
-    sig[sigcnt].df     = d;
- 
-    if (w[0] == '*') {
-      sig[sigcnt].wsize = 1;
-      sig[sigcnt].wsize_mod = MOD_CONST;
-    } else if (tolower(w[0]) == 's') {
-      sig[sigcnt].wsize_mod = MOD_MSS;
-      if (!isdigit(*(w+1))) fatal("Bad Snn value in WSS in line %d.\n",ln);
-      sig[sigcnt].wsize = atoi(w+1);
-    } else if (tolower(w[0]) == 't') {
-      sig[sigcnt].wsize_mod = MOD_MTU;
-      if (!isdigit(*(w+1))) fatal("Bad Tnn value in WSS in line %d.\n",ln);
-      sig[sigcnt].wsize = atoi(w+1);
-    } else if (w[0] == '%') {
-      if (!(sig[sigcnt].wsize = atoi(w+1)))
-        fatal("Null modulo for window size in config line %d.\n",ln);
-      sig[sigcnt].wsize_mod = MOD_CONST;
-    } else sig[sigcnt].wsize = atoi(w);
-
-    /* Now let's parse options */
-
-    p=obuf;
-
-    sig[sigcnt].zero_stamp = 1;
-
-    if (*p=='.') p++;
-
-    while (*p) {
-      _u8 optcnt = sig[sigcnt].optcnt;
-      switch (tolower(*p)) {
-
-        case 'n': sig[sigcnt].opt[optcnt] = TCPOPT_NOP;
-                  break;
-
-        case 'e': sig[sigcnt].opt[optcnt] = TCPOPT_EOL;
-                  if (*(p+1)) 
-                    fatal("EOL not the last option (line %d).\n",ln);
-                  break;
-
-        case 's': sig[sigcnt].opt[optcnt] = TCPOPT_SACKOK;
-                  break;
-
-        case 't': sig[sigcnt].opt[optcnt] = TCPOPT_TIMESTAMP;
-                  if (*(p+1)!='0') {
-                    sig[sigcnt].zero_stamp=0;
-                    if (isdigit(*(p+1))) 
-                      fatal("Bogus Tstamp specification in line %d.\n",ln);
-                  }
-                  break;
-
-        case 'w': sig[sigcnt].opt[optcnt] = TCPOPT_WSCALE;
-                  if (p[1] == '*') {
-                    sig[sigcnt].wsc = 1;
-                    sig[sigcnt].wsc_mod = MOD_CONST;
-                  } else if (p[1] == '%') {
-                    if (!(sig[sigcnt].wsc = atoi(p+2)))
-                      fatal("Null modulo for wscale in config line %d.\n",ln);
-                    sig[sigcnt].wsc_mod = MOD_CONST;
-                  } else if (!isdigit(*(p+1)))
-                    fatal("Incorrect W value in line %d.\n",ln);
-                  else sig[sigcnt].wsc = atoi(p+1);
-                  break;
-
-        case 'm': sig[sigcnt].opt[optcnt] = TCPOPT_MAXSEG;
-                  if (p[1] == '*') {
-                    sig[sigcnt].mss = 1;
-                    sig[sigcnt].mss_mod = MOD_CONST;
-                  } else if (p[1] == '%') {
-                    if (!(sig[sigcnt].mss = atoi(p+2)))
-                      fatal("Null modulo for MSS in config line %d.\n",ln);
-                    sig[sigcnt].mss_mod = MOD_CONST;
-                  } else if (!isdigit(*(p+1)))
-                    fatal("Incorrect M value in line %d.\n",ln);
-                  else sig[sigcnt].mss = atoi(p+1);
-                  break;
-
-        /* Yuck! */
-        case '?': if (!isdigit(*(p+1)))
-                    fatal("Bogus ?nn value in line %d.\n",ln);
-                  else sig[sigcnt].opt[optcnt] = atoi(p+1);
-                  break;
-
-        default: fatal("Unknown TCP option '%c' in config line %d.\n",*p,ln);
-      }
-
-      if (++sig[sigcnt].optcnt >= MAXOPT) 
-        fatal("Too many TCP options specified in config line %d.\n",ln);
-
-      /* Skip separators */
-      do { p++; } while (*p && !isalpha(*p) && *p != '?');
-
-    }
- 
-    sig[sigcnt].line = ln;
-
-    p = quirks;
-
-    while (*p) 
-      switch (toupper(*(p++))) {
-        case 'E': 
-          fatal("Quirk 'E' (line %d) is obsolete. Remove it, append E to the "
-          "options.\n",ln);
-
-        case 'K': 
-	  if (!rst_mode) fatal("Quirk 'K' (line %d) is valid only in RST+ (-R)"
-	      " mode (wrong config file?).\n",ln);
-  	  sig[sigcnt].quirks |= QUIRK_RSTACK; 
-	  break;
-
-        case 'D': 
-          if (open_mode) fatal("Quirk 'D' (line %d) is not valid in OPEN (-O) "
-                               "mode (wrong config file?).\n",ln);
-          sig[sigcnt].quirks |= QUIRK_DATA; 
- 	  break;
- 
-        case 'Q': sig[sigcnt].quirks |= QUIRK_SEQEQ; break;
-        case '0': sig[sigcnt].quirks |= QUIRK_SEQ0; break;
-        case 'P': sig[sigcnt].quirks |= QUIRK_PAST; break;
-        case 'Z': sig[sigcnt].quirks |= QUIRK_ZEROID; break;
-        case 'I': sig[sigcnt].quirks |= QUIRK_IPOPT; break;
-        case 'U': sig[sigcnt].quirks |= QUIRK_URG; break;
-        case 'X': sig[sigcnt].quirks |= QUIRK_X2; break;
-        case 'A': sig[sigcnt].quirks |= QUIRK_ACK; break;
-        case 'T': sig[sigcnt].quirks |= QUIRK_T2; break;
-        case 'F': sig[sigcnt].quirks |= QUIRK_FLAGS; break;
-        case '!': sig[sigcnt].quirks |= QUIRK_BROKEN; break;
-        case '.': break;
-        default: fatal("Bad quirk '%c' in line %d.\n",*(p-1),ln);
-      }
-
-    e = bh[SIGHASH(s,sig[sigcnt].optcnt,sig[sigcnt].quirks,d)];
-
-    if (!e) {
-      bh[SIGHASH(s,sig[sigcnt].optcnt,sig[sigcnt].quirks,d)] = sig + sigcnt;
-    } else {
-      while (e->next) e = e->next;
-      e->next = sig + sigcnt;
-    } 
-
-    if (check_collide) collide(sigcnt);
-
-    if (++sigcnt >= MAXSIGS)
-      fatal("Maximum signature count exceeded.\n");
-
+  while ((de = readdir(d))) {
+    i = atol(de->d_name);
+    if (i > 2 && !close(i)) closed++;
   }
 
-  fclose(c);
+  closedir(d);
 
-#ifdef DEBUG_HASH
-  { 
-    int i;
-    struct fp_entry* p;
-    printf("Hash table layout: ");
-    for (i=0;i<16;i++) {
-      int z=0;
-      p = bh[i];
-      while (p) { p=p->next; z++; }
-      printf("%d ",z);
-    }
-    putchar('\n');
-  }
-#endif /* DEBUG_HASH */
-
-  if (check_collide && !problems) 
-    debug("[+] Signature collision check successful.\n");
-
-  if (!sigcnt)
-    debug("[!] WARNING: no signatures loaded from config file.\n");
+  if (closed)
+    SAYF("[+] Closed %u file descriptor%s.\n", closed, closed == 1 ? "" : "s" );
 
 }
 
 
+/* Create or open log file */
 
+static void open_log(void) {
 
-static _u8* lookup_link(_u16 mss,_u8 txt) {
-  _u32 i;
-  static _u8 tmp[32];
+  struct stat st;
+  s32 log_fd;
 
-  if (!mss) return txt ? "unspecified" : 0;
-  mss += 40;
-  
-  for (i=0;i<MTU_CNT;i++) {
-   if (mss == mtu[i].mtu) return mtu[i].dev;
-   if (mss < mtu[i].mtu)  goto unknown;
-  }
+  log_fd = open((char*)log_file, O_WRONLY | O_APPEND | O_NOFOLLOW | O_LARGEFILE);
 
-unknown:
+  if (log_fd >= 0) {
 
-  if (!txt) return 0;
-  sprintf(tmp,"unknown-%d",mss);
-  return tmp;
+    if (fstat(log_fd, &st)) PFATAL("fstat() on '%s' failed.", log_file);
 
-}
+    if (!S_ISREG(st.st_mode)) FATAL("'%s' is not a regular file.", log_file);
 
-
-static _u8* lookup_tos(_u8 t) {
-  _u32 i;
-
-  if (!t) return 0;
-
-  for (i=0;i<TOS_CNT;i++) {
-   if (t == tos[i].tos) return tos[i].desc;
-   if (t < tos[i].tos) break;
-  }
-
-  return 0;
-
-}
-
-
-static void put_date(struct timeval tval) {
-  _u8* x;
-  struct tm *tmval;
-
-  switch (add_timestamp) {
-
-    case 1: /* localtime */
-
-    case 2: /* UTC */
-
-      x = asctime((add_timestamp == 1) ? localtime(&tval.tv_sec) : 
-                                         gmtime(&tval.tv_sec));
-
-      if (x[strlen(x)-1]=='\n') x[strlen(x)-1]=0;
-
-      printf("<%s> ",x);
-
-      break;
-
-    case 3: /* seconds since the epoch */
-
-      printf("<%u.%06u> ", (_u32)tval.tv_sec, (_u32)tval.tv_usec);
-      break;
-
-    case 4: /* RFC3339 */
-    default:
-
-      tmval = gmtime(&tval.tv_sec);
-
-      printf("<%04u-%02u-%02uT%02u:%02u:%02u.%06uZ> ",
-             tmval->tm_year + 1900, tmval->tm_mon + 1, tmval->tm_mday,
-             tmval->tm_hour, tmval->tm_min, tmval->tm_sec, 
-             (_u32)tval.tv_usec);
-
-      break;
-
-  }
-
-}
-
-
-#define MY_MAXDNS 32
-
-static inline _u8* grab_name(_u8* a) {
-  struct hostent* r;
-  static _u8 rbuf[MY_MAXDNS+6] = "/";
-  _u32 j;
-  _u8 *s,*d = rbuf+1;
-
-  if (!do_resolve) return "";
-  r = gethostbyaddr(a,4,AF_INET);
-  if (!r || !(s = r->h_name) || !(j = strlen(s))) return "";
-  if (j > MY_MAXDNS) return "";
-
-  while (j--) {
-    if (isalnum(*s) || *s == '-' || *s == '.') *d = *s;
-      else *d = '?';
-    d++; s++;
-  }
-
-  *d=0;
-
-  return rbuf;
-
-}
-
-
-static inline void display_signature(_u8 ttl,_u16 tot,_u8 df,_u8* op,_u8 ocnt,
-                                     _u16 mss,_u16 wss,_u8 wsc,_u32 tstamp,
-                                     _u32 quirks) {
-
-  _u32 j;
-  _u8 d=0;
-
-  if (mss && wss && !(wss % mss)) printf("S%d",wss/mss); else
-  if (wss && !(wss % 1460)) printf("S%d",wss/1460); else
-  if (mss && wss && !(wss % (mss+40))) printf("T%d",wss/(mss+40)); else
-  if (wss && !(wss % 1500)) printf("T%d",wss/1500); else
-  if (wss == 12345) printf("*(12345)"); else printf("%d",wss);
-
-  if (!open_mode) {
-    if (tot < PACKET_BIG) printf(":%d:%d:%d:",ttl,df,tot);
-    else printf(":%d:%d:*(%d):",ttl,df,tot);
-  } else printf(":%d:%d:*:",ttl,df);
-  
-  for (j=0;j<ocnt;j++) {
-    switch (op[j]) {
-      case TCPOPT_NOP: putchar('N'); d=1; break;
-      case TCPOPT_WSCALE: printf("W%d",wsc); d=1; break;
-      case TCPOPT_MAXSEG: printf("M%d",mss); d=1; break;
-      case TCPOPT_TIMESTAMP: putchar('T'); 
-        if (!tstamp) putchar('0'); d=1; break;
-      case TCPOPT_SACKOK: putchar('S'); d=1; break;
-      case TCPOPT_EOL: putchar('E'); d=1; break;
-      default: printf("?%d",op[j]); d=1; break;
-    }
-    if (j != ocnt-1) putchar(',');
-  }
-
-  if (!d) putchar('.');
-
-  putchar(':');
-
-  if (!quirks) putchar('.'); else {
-    if (quirks & QUIRK_RSTACK) putchar('K');
-    if (quirks & QUIRK_SEQEQ) putchar('Q');
-    if (quirks & QUIRK_SEQ0) putchar('0');
-    if (quirks & QUIRK_PAST) putchar('P');
-    if (quirks & QUIRK_ZEROID) putchar('Z');
-    if (quirks & QUIRK_IPOPT) putchar('I');
-    if (quirks & QUIRK_URG) putchar('U');
-    if (quirks & QUIRK_X2) putchar('X');
-    if (quirks & QUIRK_ACK) putchar('A');
-    if (quirks & QUIRK_T2) putchar('T');
-    if (quirks & QUIRK_FLAGS) putchar('F');
-    if (quirks & QUIRK_DATA) putchar('D');
-    if (quirks & QUIRK_BROKEN) putchar('!');
-  }
-
-}
-
-
-static void dump_packet(_u8* pkt,_u16 plen) {
-  _u32 i;
-  _u8  tbuf[PKT_DLEN+1];
-  _u8* t = tbuf;
- 
-  for (i=0;i<plen;i++) {
-    _u8 c = *(pkt++);
-    if (!(i % PKT_DLEN)) printf("  [%02x] ",i);
-    printf("%02x ",c);
-    *(t++) = isprint(c) ? c : '.';
-    if (!((i+1) % PKT_DLEN)) {
-      *t=0;
-      printf(" | %s\n",(t=tbuf));
-    }
-  }
-  
-  if (plen % PKT_DLEN) {
-    *t=0;
-    while (plen++ % PKT_DLEN) printf("   ");
-    printf(" | %s\n",tbuf);
-  }
-
-}
-
-
-static void dump_payload(_u8* data,_u16 dlen) {
-  _u8  tbuf[PKT_MAXPAY+2];
-  _u8* t = tbuf;
-  _u8  i;
-  _u8  max = dlen > PKT_MAXPAY ? PKT_MAXPAY : dlen;
-
-  if (!dlen) return;
-
-  for (i=0;i<max;i++) {
-    if (isprint(*data)) *(t++) = *data; 
-      else if (!*data)  *(t++) = '?';
-      else *(t++) = '.';
-    data++;
-  }
-
-  *t = 0;
-
-  if (!mode_oneline) putchar('\n');
-  printf("  # Payload: \"%s\"%s",tbuf,dlen > PKT_MAXPAY ? "..." : "");
-
-}
-
-  
-_u32 matched_packets;
-
-static inline void find_match(_u16 tot,_u8 df,_u8 ttl,_u16 wss,_u32 src,
-                       _u32 dst,_u16 sp,_u16 dp,_u8 ocnt,_u8* op,_u16 mss,
-                       _u8 wsc,_u32 tstamp,_u8 tos,_u32 quirks,_u8 ecn,
-                       _u8* pkt,_u8 plen,_u8* pay, struct timeval pts) {
-
-  _u32 j;
-  _u8* a;
-  _u8  nat=0;
-  struct fp_entry* p;
-  _u8  orig_df  = df;
-  _u8* tos_desc = 0;
-
-  struct fp_entry* fuzzy = 0;
-  _u8 fuzzy_now = 0;
-
-re_lookup:
-
-  p = bh[SIGHASH(tot,ocnt,quirks,df)];
-
-  if (tos) tos_desc = lookup_tos(tos);
-
-  while (p) {
-  
-    /* Cheap and specific checks first... */
-
-    /* psize set to zero means >= PACKET_BIG */
-    if (!open_mode) {
-      if (p->size) { if (tot ^ p->size) { p = p->next; continue; } }
-        else if (tot < PACKET_BIG) { p = p->next; continue; }
-    }
-
-    if (ocnt ^ p->optcnt) { p = p->next; continue; }
-
-    if (p->zero_stamp ^ (!tstamp)) { p = p->next; continue; }
-    if (p->df ^ df) { p = p->next; continue; }
-    if (p->quirks ^ quirks) { p = p->next; continue; }
-
-    /* Check MSS and WSCALE... */
-    if (!p->mss_mod) {
-      if (mss ^ p->mss) { p = p->next; continue; }
-    } else if (mss % p->mss) { p = p->next; continue; }
-
-    if (!p->wsc_mod) {
-      if (wsc ^ p->wsc) { p = p->next; continue; }
-    } else if (wsc % p->wsc) { p = p->next; continue; }
-
-    /* Then proceed with the most complex WSS check... */
-    switch (p->wsize_mod) {
-      case 0:
-        if (wss ^ p->wsize) { p = p->next; continue; }
-        break;
-      case MOD_CONST:
-        if (wss % p->wsize) { p = p->next; continue; }
-        break;
-      case MOD_MSS:
-        if (mss && !(wss % mss)) {
-          if ((wss / mss) ^ p->wsize) { p = p->next; continue; }
-        } else if (!(wss % 1460)) {
-          if ((wss / 1460) ^ p->wsize) { p = p->next; continue; }
-        } else { p = p->next; continue; }
-        break;
-      case MOD_MTU:
-        if (mss && !(wss % (mss+40))) {
-          if ((wss / (mss+40)) ^ p->wsize) { p = p->next; continue; }
-        } else if (!(wss % 1500)) {
-          if ((wss / 1500) ^ p->wsize) { p = p->next; continue; }
-        } else { p = p->next; continue; }
-        break;
-     }
-
-    /* Numbers agree. Let's check options */
-
-    for (j=0;j<ocnt;j++)
-      if (p->opt[j] ^ op[j]) goto continue_search;
-
-    /* Check TTLs last because we might want to go fuzzy. */
-    if (p->ttl < ttl) {
-      if (use_fuzzy) fuzzy = p;
-      p = p->next;
-      continue;
-    }
-
-    /* Naah... can't happen ;-) */
-    if (!p->no_detail)
-      if (p->ttl - ttl > MAXDIST) { 
-        if (use_fuzzy) fuzzy = p;
-        p = p->next; 
-        continue; 
-      }
-
-continue_fuzzy:    
-    
-    /* Match! */
-    
-    matched_packets++;
-
-    if (mss & wss) {
-      if (p->wsize_mod == MOD_MSS) {
-        if ((wss % mss) && !(wss % 1460)) nat=1;
-      } else if (p->wsize_mod == MOD_MTU) {
-        if ((wss % (mss+40)) && !(wss % 1500)) nat=2;
-      }
-    }
-
-    if (!no_known) {
-
-      if (add_timestamp) put_date(pts);
-      a=(_u8*)&src;
-
-      printf("%d.%d.%d.%d%s:%d - %s ",a[0],a[1],a[2],a[3],grab_name(a),
-             sp,p->os);
-
-      if (!no_osdesc) printf("%s ",p->desc);
-
-      if (nat == 1) printf("(NAT!) "); else
-        if (nat == 2) printf("(NAT2!) ");
-
-      if (ecn) printf("(ECN) ");
-      if (orig_df ^ df) printf("(firewall!) ");
-
-      if (tos) {
-        if (tos_desc) printf("[%s] ",tos_desc); else printf("[tos %d] ",tos);
-      }
-
-      if (p->generic) printf("[GENERIC] ");
-      if (fuzzy_now) printf("[FUZZY] ");
-
-      if (p->no_detail) printf("* "); else
-        if (tstamp) printf("(up: %d hrs) ",tstamp/360000);
-
-      if (always_sig || (p->generic && !no_unknown)) {
-
-        if (!mode_oneline) printf("\n  ");
-        printf("Signature: [");
-
-        display_signature(ttl,tot,orig_df,op,ocnt,mss,wss,wsc,tstamp,quirks);
-
-        if (p->generic)
-          printf(":%s:?] ",p->os);
-        else
-          printf("] ");
-
-      }
-
-      if (!no_extra && !p->no_detail) {
-	a=(_u8*)&dst;
-        if (!mode_oneline) printf("\n  ");
-
-        if (fuzzy_now) 
-          printf("-> %d.%d.%d.%d%s:%d (link: %s)",
-               a[0],a[1],a[2],a[3],grab_name(a),dp,
-               lookup_link(mss,1));
-        else
-          printf("-> %d.%d.%d.%d%s:%d (distance %d, link: %s)",
-                 a[0],a[1],a[2],a[3],grab_name(a),dp,p->ttl - ttl,
-                 lookup_link(mss,1));
-      }
-
-      if (pay && payload_dump) dump_payload(pay,plen - (pay - pkt));
-
-      putchar('\n');
-      if (full_dump) dump_packet(pkt,plen);
-
-    }
-
-   if (find_masq && !p->userland) {
-     _s16 sc = p0f_findmasq(src,p->os,(p->no_detail || fuzzy_now) ? -1 : 
-                            (p->ttl - ttl), mss, nat, orig_df ^ df,p-sig,
-                            tstamp ? tstamp / 360000 : -1);
-     a=(_u8*)&src;
-     if (sc > masq_thres) {
-       if (add_timestamp) put_date(pts);
-       printf(">> Masquerade at %u.%u.%u.%u%s: indicators at %d%%.",
-              a[0],a[1],a[2],a[3],grab_name(a),sc);
-       if (!mode_oneline) putchar('\n'); else printf(" -- ");
-       if (masq_flags) {
-         printf("   Flags: ");
-         p0f_descmasq();
-         putchar('\n');
-       }
-     }
-   }
-
-   if (use_cache || find_masq)
-     p0f_addcache(src,dst,sp,dp,p->os,p->desc,(p->no_detail || fuzzy_now) ? 
-                  -1 : (p->ttl - ttl),p->no_detail ? 0 : lookup_link(mss,0),
-                  tos_desc, orig_df ^ df, nat, !p->userland, mss, p-sig,
-                  tstamp ? tstamp / 360000 : -1);
-
-    fflush(0);
-
-    return;
-
-continue_search:
-
-    p = p->next;
-
-  }
-
-  if (!df) { df = 1; goto re_lookup; }
-
-  if (use_fuzzy && fuzzy) {
-    df = orig_df;
-    fuzzy_now = 1;
-    p = fuzzy;
-    fuzzy = 0;
-    goto continue_fuzzy;
-  }
-
-  if (mss & wss) {
-    if ((wss % mss) && !(wss % 1460)) nat=1;
-    else if ((wss % (mss+40)) && !(wss % 1500)) nat=2;
-  }
-
-  if (!no_unknown) { 
-    if (add_timestamp) put_date(pts);
-    a=(_u8*)&src;
-    printf("%d.%d.%d.%d%s:%d - UNKNOWN [",a[0],a[1],a[2],a[3],grab_name(a),sp);
-
-    display_signature(ttl,tot,orig_df,op,ocnt,mss,wss,wsc,tstamp,quirks);
-
-    printf(":?:?] ");
-
-    if (rst_mode) {
-
-      /* Display a reasonable diagnosis of the RST+ACK madness! */
- 
-      switch (quirks & (QUIRK_RSTACK | QUIRK_SEQ0 | QUIRK_ACK)) {
-
-        /* RST+ACK, SEQ=0, ACK=0 */
-        case QUIRK_RSTACK | QUIRK_SEQ0:
-          printf("(invalid-K0) "); break;
-
-        /* RST+ACK, SEQ=0, ACK=n */
-        case QUIRK_RSTACK | QUIRK_ACK | QUIRK_SEQ0: 
-          printf("(refused) "); break;
- 
-        /* RST+ACK, SEQ=n, ACK=0 */
-        case QUIRK_RSTACK: 
-          printf("(invalid-K) "); break;
-
-        /* RST+ACK, SEQ=n, ACK=n */
-        case QUIRK_RSTACK | QUIRK_ACK: 
-          printf("(invalid-KA) "); break; 
-
-        /* RST, SEQ=n, ACK=0 */
-        case 0:
-          printf("(dropped) "); break;
-
-        /* RST, SEQ=m, ACK=n */
-        case QUIRK_ACK: 
-          printf("(dropped 2) "); break;
- 
-        /* RST, SEQ=0, ACK=0 */
-        case QUIRK_SEQ0: 
-          printf("(invalid-0) "); break;
-
-        /* RST, SEQ=0, ACK=n */
-        case QUIRK_ACK | QUIRK_SEQ0: 
-          printf("(invalid-0A) "); break; 
-
-      }
-
-    }
-
-    if (nat == 1) printf("(NAT!) ");
-      else if (nat == 2) printf("(NAT2!) ");
-
-    if (ecn) printf("(ECN) ");
-
-    if (tos) {
-      if (tos_desc) printf("[%s] ",tos_desc); else printf("[tos %d] ",tos);
-    }
-
-    if (tstamp) printf("(up: %d hrs) ",tstamp/360000);
-
-    if (!no_extra) {
-      a=(_u8*)&dst;
-      if (!mode_oneline) printf("\n  ");
-      printf("-> %d.%d.%d.%d%s:%d (link: %s)",a[0],a[1],a[2],a[3],
-	       grab_name(a),dp,lookup_link(mss,1));
-    }
-
-    if (use_cache)
-      p0f_addcache(src,dst,sp,dp,0,0,-1,lookup_link(mss,0),tos_desc,
-                   0,nat,0 /* not real, we're not sure */ ,mss,(_u32)-1,
-                   tstamp ? tstamp / 360000 : -1);
-
-    if (pay && payload_dump) dump_payload(pay,plen - (pay - pkt));
-    putchar('\n');
-    if (full_dump) dump_packet(pkt,plen);
-    fflush(0);
-
-  }
-
-}
-
-
-#define GET16(p) \
-        ((_u16) *((_u8*)(p)+0) << 8 | \
-         (_u16) *((_u8*)(p)+1) )
-
-
-static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
-  struct ip_header *iph;
-  struct tcp_header *tcph;
-  struct timeval pts;
-  _u8*   end_ptr;
-  _u8*   opt_ptr;
-  _u8*   pay = 0;
-  _s32   ilen,olen;
-
-  _u8    op[MAXOPT];
-  _u8    ocnt = 0;
-  _u16   mss_val = 0, wsc_val = 0;
-  _u32   tstamp = 0;
-  _u32   quirks = 0;
-
-  packet_count++;
-
-  if (dumper) pcap_dump((_u8*)dumper,pph,packet);
-
-  /* Paranoia! */
-  if (pph->len <= PACKET_SNAPLEN) end_ptr = packet + pph->len;
-    else end_ptr = packet + PACKET_SNAPLEN;
-
-  iph = (struct ip_header*)(packet+header_len);
-
-  if (use_vlan && iph->ihl == 0x00) 
-    iph = (struct ip_header*)((_u8*)iph + 4);
-
-  /* Whoops, IP header ends past end_ptr */
-  if ((_u8*)(iph + 1) > end_ptr) return;
-
-  if ( ((iph->ihl & 0x40) != 0x40) || iph->proto != IPPROTO_TCP) {
-    debug("[!] WARNING: Non-IP packet received. Bad header_len!\n");
-    return;
-  }
-
-  /* If the declared length is shorter than the snapshot (etherleak
-     or such), truncate this bad boy. */
-
-  opt_ptr = (_u8*)iph + htons(iph->tot_len);
-  if (end_ptr > opt_ptr) end_ptr = opt_ptr;
-
-  ilen = iph->ihl & 15;
-
-  /* OpenBSD kludge */
-  pts = *(struct timeval*)&pph->ts;
-
-  /* Borken packet */
-  if (ilen < 5) return;
-
-  if (ilen > 5) {
-
-#ifdef DEBUG_EXTRAS
-    _u8 i;
-    printf("  -- EXTRA IP OPTIONS (packet below): ");
-    for (i=0;i<ilen-5;i++) 
-      printf("%08x ",(_u32)ntohl(*(((_u32*)(iph+1))+i)));
-    putchar('\n');
-    fflush(0);
-#endif /* DEBUG_EXTRAS */
-
-    quirks |= QUIRK_IPOPT;
-  }
-
-  tcph = (struct tcp_header*)((_u8*)iph + (ilen << 2));
-  opt_ptr = (_u8*)(tcph + 1);
-    
-  /* Whoops, TCP header would end past end_ptr */
-  if (opt_ptr > end_ptr) return;
-
-  if (rst_mode && (tcph->flags & TH_ACK)) quirks |= QUIRK_RSTACK;
- 
-  if (tcph->seq == tcph->ack) quirks |= QUIRK_SEQEQ;
-  if (!tcph->seq) quirks |= QUIRK_SEQ0;
- 
-  if (tcph->flags & ~(TH_SYN|TH_ACK|TH_RST|TH_ECE|TH_CWR 
-                      | (open_mode?TH_PUSH:0))) 
-    quirks |= QUIRK_FLAGS;
-
-  ilen=((tcph->doff) << 2) - sizeof(struct tcp_header);
-  
-  if ( (_u8*)opt_ptr + ilen < end_ptr) { 
-  
-#ifdef DEBUG_EXTRAS
-    _u32 i;
-    
-    printf("  -- EXTRA PAYLOAD (packet below): ");
-    
-    for (i=0;i< (_u32)end_ptr - ilen - (_u32)opt_ptr;i++)
-      printf("%02x ",*(opt_ptr + ilen + i));
-
-    putchar('\n');
-    fflush(0);
-#endif /* DEBUG_EXTRAS */
-  
-    if (!open_mode) quirks |= QUIRK_DATA;
-    pay = opt_ptr + ilen;
-   
-  }
-
-  while (ilen > 0) {
-
-    ilen--;
-
-    switch (*(opt_ptr++)) {
-      case TCPOPT_EOL:  
-        /* EOL */
-        op[ocnt] = TCPOPT_EOL;
-        ocnt++;
-
-        if (ilen) {
-
-          quirks |= QUIRK_PAST;
-
-#ifdef DEBUG_EXTRAS
-
-          printf("  -- EXTRA TCP OPTIONS (packet below): ");
-
-          while (ilen) {
-            ilen--;
-            if (opt_ptr >= end_ptr) { printf("..."); break; }
-            printf("%02x ",*(opt_ptr++));
-          }
-
-          putchar('\n');
-          fflush(0);
-
-#endif /* DEBUG_EXTRAS */
-
-        }
-
-        /* This goto will be probably removed at some point. */
-        goto end_parsing;
-
-      case TCPOPT_NOP:
-        /* NOP */
-        op[ocnt] = TCPOPT_NOP;
-        ocnt++;
-        break;
-
-      case TCPOPT_SACKOK:
-        /* SACKOK LEN */
-        op[ocnt] = TCPOPT_SACKOK;
-        ocnt++; ilen--; opt_ptr++;
-        break;
-	
-      case TCPOPT_MAXSEG:
-        /* MSS LEN D0 D1 */
-        if (opt_ptr + 3 > end_ptr) {
-borken:
-          quirks |= QUIRK_BROKEN;
-          goto end_parsing;
-        }
-        op[ocnt] = TCPOPT_MAXSEG;
-        mss_val = GET16(opt_ptr+1);
-        ocnt++; ilen -= 3; opt_ptr += 3;
-        break;
-
-      case TCPOPT_WSCALE:
-        /* WSCALE LEN D0 */
-        if (opt_ptr + 2 > end_ptr) goto borken;
-        op[ocnt] = TCPOPT_WSCALE;
-        wsc_val = *(_u8 *)(opt_ptr + 1);
-        ocnt++; ilen -= 2; opt_ptr += 2;
-        break;
-
-      case TCPOPT_TIMESTAMP:
-        /* TSTAMP LEN T0 T1 T2 T3 A0 A1 A2 A3 */
-        if (opt_ptr + 9 > end_ptr) goto borken;
-        op[ocnt] = TCPOPT_TIMESTAMP;
-
-	memcpy(&tstamp, opt_ptr+5, 4);
-        if (tstamp) quirks |= QUIRK_T2;
-
-	memcpy(&tstamp, opt_ptr+1, 4);
-        tstamp = ntohl(tstamp);
-
-        ocnt++; ilen -= 9; opt_ptr += 9;
-        break;
-
-      default:
-
-        /* Hrmpf... */
-        if (opt_ptr + 1 > end_ptr) goto borken;
-
-        op[ocnt] = *(opt_ptr-1);
-        olen = *(_u8*)(opt_ptr)-1;
-        if (olen > 32 || (olen < 0)) goto borken;
-
-        ocnt++; ilen -= olen; opt_ptr += olen;
-        break;
-
-     }
-
-     if (ocnt >= MAXOPT-1) goto borken;
-
-     /* Whoops, we're past end_ptr */
-     if (ilen > 0)
-       if (opt_ptr >= end_ptr) goto borken;
-
-   }
-
-end_parsing:
-
-   if (tcph->ack) quirks |= QUIRK_ACK;
-   if (tcph->urg) quirks |= QUIRK_URG;
-   if (tcph->_x2) quirks |= QUIRK_X2;
-   if (!iph->id)  quirks |= QUIRK_ZEROID;
-
-   find_match(
-     /* total */ open_mode ? 0 : ntohs(iph->tot_len),
-     /* DF */    (ntohs(iph->off) & IP_DF) != 0,
-     /* TTL */   iph->ttl,
-     /* WSS */   ntohs(tcph->win),
-     /* src */   iph->saddr,
-     /* dst */   iph->daddr,
-     /* sp */    ntohs(tcph->sport),
-     /* dp */    ntohs(tcph->dport),
-     /* ocnt */  ocnt,
-     /* op */    op,
-     /* mss */   mss_val,
-     /* wsc */   wsc_val,
-     /* tst */   tstamp,
-     /* TOS */   iph->tos,
-     /* Q? */    quirks,
-     /* ECN */   tcph->flags & (TH_ECE|TH_CWR),
-     /* pkt */   (_u8*)iph,
-     /* len */   end_ptr - (_u8*)iph,
-     /* pay */   pay,
-     /* ts */    pts
-  );
-
-#ifdef DEBUG_EXTRAS
-
-  if (quirks & QUIRK_FLAGS || tcph->ack || tcph->_x2 || tcph->urg) 
-    printf("  -- EXTRA TCP VALUES: ACK=0x%x, UNUSED=%d, URG=0x%x "
-           "(flags = %x)\n",tcph->ack,tcph->_x2,tcph->urg,tcph->flags);
-  fflush(0);
-
-#endif /* DEBUG_EXTRAS */
-
-}
-
-
-
-int main(int argc,char** argv) {
-  _u8 buf[MAXLINE*4];
-  _s32 r;
-  _u8 errbuf[PCAP_ERRBUF_SIZE];
-
-#ifdef WIN32
-  _u8 ebuf[PCAP_ERRBUF_SIZE];
-  pcap_if_t *alldevs, *d;
-  _s32 adapter, i;
-  while ((r = getopt(argc, argv, "f:i:s:o:w:c:T:e:XONVFDxKUqvtpArRlSdCLM")) != -1)
-#else
-  _s32 lsock=0;
-
-  if (getuid() != geteuid())
-    fatal("This program is not intended to be setuid.\n");
-  
-  while ((r = getopt(argc, argv, "f:i:s:o:Q:u:w:c:e:T:XOFNVDxKUqtRpvArlSdCM0")) != -1) 
-#endif /* ^WIN32 */
-
-    switch (r) {
-
-      case 'f': config_file = optarg; break;
-
-      case 'i': use_iface = optarg; break;
-
-      case 's': use_dump = optarg; break;
-
-      case 'w': write_dump = optarg; break;
-
-      case 'c': query_cache = atoi(optarg); break;
-
-      case 'o': if (!freopen(optarg,"a",stdout)) pfatal(optarg);
-                use_logfile = 1;
-                break;
-
-      case 'V': masq_flags = 1;      break;
-      case 'M': find_masq  = 1;      break;
-      case 'T': masq_thres = atoi(optarg);
-                if (masq_thres <= 0 || masq_thres > 200) fatal("Invalid -T value.\n");
-                break;
-		
-      case 'e': capture_timeout = atoi(optarg);
-                if (capture_timeout <= 0 ||capture_timeout > 10000) fatal("Invalid -e value.\n");
-                break;
-
-#ifndef WIN32
-      case 'Q': use_cache  = optarg; break;
-      case '0': port0_wild = 1;      break;
-      case 'u': set_user   = optarg; break;
-#endif /* !WIN32 */
-
-      case 'r': do_resolve    = 1; break;
-      case 'S': always_sig    = 1; break;
-      case 'N': no_extra      = 1; break;
-      case 'D': no_osdesc     = 1; break;
-      case 'U': no_unknown    = 1; break;
-      case 'K': no_known      = 1; break;
-      case 'q': no_banner     = 1; break;
-      case 'p': use_promisc   = 1; break;
-      case 't': add_timestamp++;   break;
-      case 'd': go_daemon     = 1; break;
-      case 'v': use_vlan      = 1; break;
-      case 'l': mode_oneline  = 1; break;
-      case 'C': check_collide = 1; break;
-      case 'x': full_dump     = 1; break;
-      case 'X': payload_dump  = 1; break;
-      case 'F': use_fuzzy     = 1; break;
-
-      case 'A': use_rule = "tcp[13] & 0x17 == 0x12";
-                ack_mode = 1;
-                break;
-
-      case 'R': use_rule = "tcp[13] & 0x17 == 0x4 or tcp[13] & 0x17 == 0x14";
-                rst_mode = 1;
-                break;
-
-      case 'O': use_rule = "tcp[13] & 0x17 == 0x10";
-                open_mode = 1;
-                break;
-
-#ifdef WIN32
-
-      case 'L':
-        if (pcap_findalldevs(&alldevs, ebuf) == -1)
-	  fatal("pcap_findalldevs: %s\n", ebuf);
-
-      debug("\nInterface\tDevice\t\tDescription\n"
-            "-------------------------------------------\n");
-
-      for(i=1,d=alldevs;d;d=d->next,i++) {
-        debug("%d %s",i, d->name);
-        if (d->description)
-	  debug("\t%s",d->description);
- 	debug("\n");
-      }
-      exit(1);
-      break;
-
-#endif  /* WIN32 */
-
-      default: usage(argv[0]);
-    }
-    
-  if (!use_cache && port0_wild) fatal("-0 requires -Q (query mode).\n");
-
-  if (use_logfile && !add_timestamp) add_timestamp = 1;
-
-  if (use_iface && use_dump)
-    fatal("-s and -i are mutually exclusive.\n");
-
-  if (full_dump && mode_oneline)
-    fatal("-x and -l are mutually exclusive.\n");
-
-  if ((ack_mode && rst_mode) || (ack_mode && open_mode) ||
-      (open_mode && ack_mode))
-    fatal("-A, -R and -O are mutually exclusive.\n");
-
-#ifdef DEBUG_EXTRAS
-  if (mode_oneline || no_known || no_unknown || no_extra)
-    debug("[!] WARNING: compiled with DEBUG_EXTRAS, -l, -K, -U, -N not "
-          "compatible.\n");
-#endif
-
-  if (find_masq || use_cache)
-    p0f_initcache(query_cache);
-    
-  if (!use_cache && !find_masq && no_known && no_unknown)
-    fatal("-U and -K are mutually exclusive (except with -Q or -M).\n");
-
-  if (!use_logfile && go_daemon)
-    fatal("-d requires -o.\n");
-
-  if (!no_banner) {
-    debug("p0f - passive os fingerprinting utility, version " VER "\n"
-          "(C) M. Zalewski <lcamtuf@dione.cc>, W. Stearns <wstearns@pobox.com>\n");  
-#ifdef WIN32
-    debug("WIN32 port (C) M. Davis <mike@datanerds.net>, K. Kuehl <kkuehl@cisco.com>\n");
-#endif /* WIN32 */
-
-    if (use_fuzzy && rst_mode)
-      debug("[!] WARNING: It is a bad idea to combine -F and -R.\n");
-
-  }
-
-  load_config(config_file);
-
-  if (argv[optind] && *(argv[optind])) {
-    sprintf(buf,"(%s) and (%.3000s)",use_rule,argv[optind]);
-    use_rule = buf;
-  } 
-
-  if (use_vlan) {
-    _u8* x = strdup(use_rule);
-    sprintf(buf,"(%.1000s) or (vlan and (%.1000s))",x,x);
-    free(x);
-    use_rule = buf;
-  }
-
-  signal(SIGINT,&die_nicely);
-  signal(SIGTERM,&die_nicely);
-
-#ifndef WIN32
-  signal(SIGHUP,&die_nicely);
-  signal(SIGQUIT,&die_nicely);
-
-  if (use_cache) {
-    struct sockaddr_un x;
-    
-    lsock = socket(PF_UNIX,SOCK_STREAM,0);
-    if (lsock < 0) pfatal("socket");
-
-    memset(&x,0,sizeof(x));
-    x.sun_family = AF_UNIX;
-    strncpy(x.sun_path,use_cache,63);
-    unlink(use_cache);
-    if (bind(lsock,(struct sockaddr*)&x,sizeof(x))) pfatal(use_cache);
-    if (listen(lsock,10)) pfatal("listen");
-
-  }
-#endif /* !WIN32 */
-
-  if (use_dump) {
-    if (!(pt=pcap_open_offline(use_dump, errbuf))) 
-      fatal("pcap_open_offline failed: %s\n",errbuf);
   } else {
 
-#ifdef WIN32
-    if (pcap_findalldevs(&alldevs, ebuf) == -1)
-      fatal("pcap_findalldevs: %s\n", ebuf);
-	
+    if (errno != ENOENT) PFATAL("Cannot open '%s'.", log_file);
+
+    log_fd = open((char*)log_file, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
+                  LOG_MODE);
+
+    if (log_fd < 0) PFATAL("Cannot open '%s'.", log_file);
+
+  }
+
+  if (flock(log_fd, LOCK_EX | LOCK_NB))
+    FATAL("'%s' is being used by another process.", log_file);
+
+  lf = fdopen(log_fd, "a");
+
+  if (!lf) FATAL("fdopen() on '%s' failed.", log_file);
+
+  SAYF("[+] Log file '%s' opened for writing.\n", log_file);
+
+}
+
+
+/* Create and start listening on API socket */
+
+static void open_api(void) {
+
+  s32 old_umask;
+  u32 i;
+
+  struct sockaddr_un u;
+  struct stat st;
+
+  api_fd = socket(PF_UNIX, SOCK_STREAM, 0);
+
+  if (api_fd < 0) PFATAL("socket(PF_UNIX) failed.");
+
+  memset(&u, 0, sizeof(u));
+  u.sun_family = AF_UNIX;
+
+  if (strlen((char*)api_sock) >= sizeof(u.sun_path))
+    FATAL("API socket filename is too long for sockaddr_un (blame Unix).");
+
+  strcpy(u.sun_path, (char*)api_sock);
+
+  /* This is bad, but you can't do any better with standard unix socket
+     semantics today :-( */
+
+  if (!stat((char*)api_sock, &st) && !S_ISSOCK(st.st_mode))
+    FATAL("'%s' exists but is not a socket.", api_sock);
+
+  if (unlink((char*)api_sock) && errno != ENOENT)
+    PFATAL("unlink('%s') failed.", api_sock);
+
+  old_umask = umask(0777 ^ API_MODE);
+
+  if (bind(api_fd, (struct sockaddr*)&u, sizeof(u)))
+    PFATAL("bind() on '%s' failed.", api_sock);
+  
+  umask(old_umask);
+
+  if (listen(api_fd, api_max_conn))
+    PFATAL("listen() on '%s' failed.", api_sock);
+
+  if (fcntl(api_fd, F_SETFL, O_NONBLOCK))
+    PFATAL("fcntl() to set O_NONBLOCK on API listen socket fails.");
+
+  api_cl = DFL_ck_alloc(api_max_conn * sizeof(struct api_client));
+
+  for (i = 0; i < api_max_conn; i++) api_cl[i].fd = -1;
+
+  SAYF("[+] Listening on API socket '%s' (max %u clients).\n",
+       api_sock, api_max_conn);
+
+}
+
+
+/* Open log entry. */
+
+void start_observation(char* keyword, u8 field_cnt, u8 to_srv,
+                       struct packet_flow* f) {
+
+  if (obs_fields) FATAL("Premature end of observation.");
+
+  if (!daemon_mode) {
+
+    SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
+         f->cli_port);
+    SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(f->server->addr, f->client->ip_ver),
+         f->srv_port, keyword);
+
+    SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server", 
+         addr_to_str(to_srv ? f->client->addr :
+         f->server->addr, f->client->ip_ver),
+         to_srv ? f->cli_port : f->srv_port);
+
+  }
+
+  if (log_file) {
+
+    u8 tmp[64];
+
+    time_t ut = get_unix_time();
+    struct tm* lt = localtime(&ut);
+
+    strftime((char*)tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
+
+    LOGF("[%s] mod=%s|cli=%s/%u|",tmp, keyword, addr_to_str(f->client->addr,
+         f->client->ip_ver), f->cli_port);
+
+    LOGF("srv=%s/%u|subj=%s", addr_to_str(f->server->addr, f->server->ip_ver),
+         f->srv_port, to_srv ? "cli" : "srv");
+
+  }
+
+  obs_fields = field_cnt;
+
+}
+
+
+/* Add log item. */
+
+void add_observation_field(char* key, u8* value) {
+
+  if (!obs_fields) FATAL("Unexpected observation field ('%s').", key);
+
+  if (!daemon_mode)
+    SAYF("| %-8s = %s\n", key, value ? value : (u8*)"???");
+
+  if (log_file) LOGF("|%s=%s", key, value ? value : (u8*)"???");
+
+  obs_fields--;
+
+  if (!obs_fields) {
+
+    if (!daemon_mode) SAYF("|\n`----\n\n");
+
+    if (log_file) LOGF("\n");
+
+  }
+
+}
+
+
+/* Show PCAP interface list */
+
+static void list_interfaces(void) {
+
+  char pcap_err[PCAP_ERRBUF_SIZE];
+  pcap_if_t *dev;
+  u8 i = 0;
+
+  /* There is a bug in several years' worth of libpcap releases that causes it
+     to SEGV here if /sys/class/net is not readable. See http://goo.gl/nEnGx */
+
+  if (access("/sys/class/net", R_OK | X_OK) && errno != ENOENT)
+    FATAL("This operation requires access to /sys/class/net/, sorry.");
+
+  if (pcap_findalldevs(&dev, pcap_err) == -1)
+    FATAL("pcap_findalldevs: %s\n", pcap_err);
+
+  if (!dev) FATAL("Can't find any interfaces. Maybe you need to be root?");
+
+  SAYF("\n-- Available interfaces --\n");
+
+  do {
+
+    pcap_addr_t *a = dev->addresses;
+
+    SAYF("\n%3d: Name        : %s\n", i++, dev->name);
+    SAYF("     Description : %s\n", dev->description ? dev->description : "-");
+
+    /* Let's try to find something we can actually display. */
+
+    while (a && a->addr->sa_family != PF_INET && a->addr->sa_family != PF_INET6)
+      a = a->next;
+
+    if (a) {
+
+      if (a->addr->sa_family == PF_INET)
+        SAYF("     IP address  : %s\n", addr_to_str(((u8*)a->addr) + 4, IP_VER4));
+      else
+        SAYF("     IP address  : %s\n", addr_to_str(((u8*)a->addr) + 8, IP_VER6));
+
+     } else SAYF("     IP address  : (none)\n");
+
+  } while ((dev = dev->next));
+
+  SAYF("\n");
+
+  pcap_freealldevs(dev);
+
+}
+
+
+
+#ifdef __CYGWIN__
+
+/* List PCAP-recognized interfaces */
+
+static u8* find_interface(int num) {
+
+  char pcap_err[PCAP_ERRBUF_SIZE];
+  pcap_if_t *dev;
+
+  if (pcap_findalldevs(&dev, pcap_err) == -1)
+    FATAL("pcap_findalldevs: %s\n", pcap_err);
+
+  do {
+
+    if (!num--) {
+      u8* ret = DFL_ck_strdup((char*)dev->name);
+      pcap_freealldevs(dev);
+      return ret;
+    }
+
+  } while ((dev = dev->next));
+
+  FATAL("Interface not found (use -L to list all).");
+
+}
+
+#endif /* __CYGWIN__ */
+
+
+/* Initialize PCAP capture */
+
+static void prepare_pcap(void) {
+
+  char pcap_err[PCAP_ERRBUF_SIZE];
+  u8* orig_iface = use_iface;
+
+  if (read_file) {
+
+    if (set_promisc)
+      FATAL("Dude, how am I supposed to make a file promiscuous?");
+
+    if (use_iface)
+      FATAL("Options -i and -r are mutually exclusive.");
+
+    if (access((char*)read_file, R_OK))
+      PFATAL("Can't access file '%s'.", read_file);
+
+    pt = pcap_open_offline((char*)read_file, pcap_err);
+
+    if (!pt) FATAL("pcap_open_offline: %s", pcap_err);
+
+    SAYF("[+] Will read pcap data from file '%s'.\n", read_file);
+
+  } else {
+
     if (!use_iface) {
-      d = alldevs;
+
+      /* See the earlier note on libpcap SEGV - same problem here.
+         Also, this retusns something stupid on Windows, but hey... */
+     
+      if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT)
+        use_iface = (u8*)pcap_lookupdev(pcap_err);
+
+      if (!use_iface)
+        FATAL("libpcap is out of ideas; use -i to specify interface.");
+
+    }
+
+#ifdef __CYGWIN__
+
+    /* On Windows, interface names are unwieldy, and people prefer to use
+       numerical IDs. */
+
+    else {
+
+      int iface_id;
+
+      if (sscanf((char*)use_iface, "%u", &iface_id) == 1) {
+        use_iface = find_interface(iface_id);
+      }
+  
+    }
+
+    pt = pcap_open_live((char*)use_iface, SNAPLEN, set_promisc, 250, pcap_err);
+
+#else 
+
+    /* PCAP timeouts tend to be broken, so we'll use a minimum value
+       and rely on select() instead. */
+
+    pt = pcap_open_live((char*)use_iface, SNAPLEN, set_promisc, 1, pcap_err);
+
+#endif /* ^__CYGWIN__ */
+
+    if (!orig_iface)
+      SAYF("[+] Intercepting traffic on default interface '%s'.\n", use_iface);
+    else
+      SAYF("[+] Intercepting traffic on interface '%s'.\n", use_iface);
+
+    if (!pt) FATAL("pcap_open_live: %s", pcap_err);
+
+  }
+
+  link_type = pcap_datalink(pt);
+
+}
+
+
+/* Initialize BPF filtering */
+
+static void prepare_bpf(void) {
+
+  struct bpf_program flt;
+
+  u8*  final_rule;
+  u8   vlan_support;
+
+  /* VLAN matching is somewhat brain-dead: you need to request it explicitly,
+     and it alters the semantics of the remainder of the expression. */
+
+  vlan_support = (pcap_datalink(pt) == DLT_EN10MB);
+
+  if (!orig_rule) {
+
+    if (vlan_support) {
+      final_rule = (u8*)"tcp or (vlan and tcp)";
     } else {
-      adapter = atoi(use_iface);
-      for(i=1, d=alldevs; adapter && i < adapter && d; i++, d=d->next);
-      if (!d) fatal("Unable to find adapter %d\n", adapter);
+      final_rule = (u8*)"tcp";
     }
 
-    use_iface = d->name;
+  } else {
 
-#else
-    if (!use_iface) use_iface=pcap_lookupdev(errbuf);
-#endif /* ^WIN32 */
+    if (vlan_support) {
 
-    if (!use_iface) use_iface = "lo";
+      final_rule = ck_alloc(strlen((char*)orig_rule) * 2 + 64);
 
-    /* We do not rely on pcap timeouts - they suck really bad. Of
-       course, the documentation sucks, and if you use the timeout
-       of zero, things will break. */
-    
-    if (!(pt=pcap_open_live(use_iface,PACKET_SNAPLEN,use_promisc,capture_timeout,errbuf))) 
-      fatal("pcap_open_live failed: %s\n",errbuf);
-  }
+      sprintf((char*)final_rule, "(tcp and (%s)) or (vlan and tcp and (%s))",
+              orig_rule, orig_rule);
 
-  set_header_len(pcap_datalink(pt));
+    } else {
 
-  if (pcap_compile(pt, &flt, use_rule, 1, 0))
-    if (strchr(use_rule,'(')) {
-      pcap_perror(pt,"pcap_compile");
-      debug("See man tcpdump or p0f README for help on bpf filter expressions.\n");
-      exit(1);
+      final_rule = ck_alloc(strlen((char*)orig_rule) + 16);
+
+      sprintf((char*)final_rule, "tcp and (%s)", orig_rule);
+
     }
 
-  if (!no_banner) {
-    debug("p0f: listening (%s) on '%s', %d sigs (%d generic, cksum %08X), rule: '%s'.\n",
-          ack_mode ? "SYN+ACK" : rst_mode ? "RST+" :
-          open_mode ? "OPEN" : "SYN",
-          use_dump?use_dump:use_iface,sigcnt,gencnt,file_cksum,
-          argv[optind]?argv[optind]:"all");
-
-    if (use_cache) debug("[*] Accepting queries at socket %s (timeout: %d s).\n",use_cache,QUERY_TIMEOUT);
-    if (find_masq) debug("[*] Masquerade detection enabled at threshold %d%%.\n",masq_thres);
-    
   }
-  
-  pcap_setfilter(pt, &flt);
 
-  if (write_dump) {
-    if (!(dumper=pcap_dump_open(pt, write_dump))) {
-      pcap_perror(pt,"pcap_dump_open");
-      exit(1);
+  DEBUG("[#] Computed rule: %s\n", final_rule);
+
+  if (pcap_compile(pt, &flt, (char*)final_rule, 1, 0)) {
+    pcap_perror(pt, "[-] pcap_compile");
+
+    if (!orig_rule)
+      FATAL("pcap_compile() didn't work, strange");
+    else
+      FATAL("Syntax error! See 'man tcpdump' for help on filters.");
+
+  }
+
+  if (pcap_setfilter(pt, &flt))
+    FATAL("pcap_setfilter() didn't work, strange.");
+
+  pcap_freecode(&flt);
+
+  if (!orig_rule) {
+
+    SAYF("[+] Default packet filtering configured%s.\n",
+         vlan_support ? " [+VLAN]" : "");
+
+  } else {
+
+    SAYF("[+] Custom filtering rule enabled: %s%s\n",
+         orig_rule ? orig_rule : (u8*)"tcp",
+         vlan_support ? " [+VLAN]" : "");
+
+    ck_free(final_rule);
+
+  }
+
+}
+
+
+/* Drop privileges and chroot(), with some sanity checks */
+
+static void drop_privs(void) {
+
+  struct passwd* pw;
+
+  pw = getpwnam((char*)switch_user);
+
+  if (!pw) FATAL("User '%s' not found.", switch_user);
+
+  if (!strcmp(pw->pw_dir, "/"))
+    FATAL("User '%s' must have a dedicated home directory.", switch_user);
+
+  if (!pw->pw_uid || !pw->pw_gid)
+    FATAL("User '%s' must be non-root.", switch_user);
+
+  if (initgroups(pw->pw_name, pw->pw_gid))
+    PFATAL("initgroups() for '%s' failed.", switch_user);
+
+  if (chdir(pw->pw_dir))
+    PFATAL("chdir('%s') failed.", pw->pw_dir);
+
+  if (chroot(pw->pw_dir))
+    PFATAL("chroot('%s') failed.", pw->pw_dir);
+
+  if (chdir("/"))
+    PFATAL("chdir('/') after chroot('%s') failed.", pw->pw_dir);
+
+  if (!access("/proc/", F_OK) || !access("/sys/", F_OK))
+    FATAL("User '%s' must have a dedicated home directory.", switch_user);
+
+  if (setgid(pw->pw_gid))
+    PFATAL("setgid(%u) failed.", pw->pw_gid);
+
+  if (setuid(pw->pw_uid))
+    PFATAL("setuid(%u) failed.", pw->pw_uid);
+
+  if (getegid() != pw->pw_gid || geteuid() != pw->pw_uid)
+    FATAL("Inconsistent euid / egid after dropping privs.");
+
+  SAYF("[+] Privileges dropped: uid %u, gid %u, root '%s'.\n",
+       pw->pw_uid, pw->pw_gid, pw->pw_dir);
+
+}
+
+
+/* Enter daemon mode. */
+
+static void fork_off(void) {
+
+  s32 npid;
+
+  fflush(0);
+
+  npid = fork();
+
+  if (npid < 0) PFATAL("fork() failed.");
+
+  if (!npid) {
+
+    /* Let's assume all this is fairly unlikely to fail, so we can live
+       with the parent possibly proclaiming success prematurely. */
+
+    if (dup2(null_fd, 0) < 0) PFATAL("dup2() failed.");
+
+    /* If stderr is redirected to a file, keep that fd and use it for
+       normal output. */
+
+    if (isatty(2)) {
+
+      if (dup2(null_fd, 1) < 0 || dup2(null_fd, 2) < 0)
+        PFATAL("dup2() failed.");
+
+    } else {
+
+      if (dup2(2, 1) < 0) PFATAL("dup2() failed.");
+
     }
-  }
-  
-  /* For p0f statistics */
-  if (ack_mode) operating_mode = 'A'; 
-  else if (rst_mode) operating_mode = 'R';
-  else if (open_mode) operating_mode = 'O';
-  else operating_mode = 'S';
 
-#ifndef WIN32
+    close(null_fd);
+    null_fd = -1;
 
-  if (set_user) {
-    struct passwd* pw;
+    if (chdir("/")) PFATAL("chdir('/') failed.");
 
-    if (geteuid()) fatal("only root can use -u.\n");
-
-    tzset();
-
-    pw = getpwnam(set_user);
-    if (!pw) fatal("user %s not found.\n",set_user);
-    
-    if (use_cache && chown(use_cache,pw->pw_uid,pw->pw_gid)) 
-      debug("[!] Failed to set ownership of query socket.");
- 
-    if (chdir(pw->pw_dir)) pfatal(pw->pw_dir);
-    if (chroot(pw->pw_dir)) pfatal("chroot");
-    chdir("/");
-
-    if (initgroups(pw->pw_name,pw->pw_gid)) pfatal("initgroups");
-    if (setgid(pw->pw_gid)) pfatal("setgid");
-    if (setuid(pw->pw_uid)) pfatal("setuid");
-
-    if (getegid() != pw->pw_gid || geteuid() != pw->pw_uid)
-      fatal("failed to setuid/setgid to the desired UID/GID.\n");
-
-  }
-
-#endif /* !WIN32 */
-
-  if (go_daemon) {
-
-#ifndef WIN32
-    _s32 f;
-    struct timeval tv;
-    FILE* pid_fd;
-    fflush(0);
-    f = fork();
-    if (f<0) pfatal("fork() failed");
-    if (f) exit(0);
-    dup2(1,2);
-    close(0);
-    chdir("/");
     setsid();
-    signal(SIGHUP,SIG_IGN);
-    
-    if ((pid_fd = fopen(PID_PATH, "w"))) {
-      fprintf(pid_fd, "%d", getpid());
-      fclose(pid_fd);
-    }
-    
-    printf("--- p0f " VER " resuming operations at ");
-    gettimeofday(&tv, (struct timezone*)0);
-    put_date(tv);
-    printf("---\n");
-    fflush(0);
-#else
-    fatal("daemon mode is not support in the WIN32 version.\n");
-#endif /* ^WIN32 */
+
+  } else {
+
+    SAYF("[+] Daemon process created, PID %u (stderr %s).\n", npid,
+      isatty(2) ? "not kept" : "kept as-is");
+
+    SAYF("\nGood luck, you're on your own now!\n");
+
+    exit(0);
 
   }
 
-  st_time = time(0);
+}
 
-#ifndef WIN32 
 
-  if (use_cache) {
+/* Handler for Ctrl-C and related signals */
 
-    _s32 mfd,max;
+static void abort_handler(int sig) {
+  if (stop_soon) exit(1);
+  stop_soon = 1;
+}
 
-    mfd = pcap_fileno(pt);
 
-    max = 1 + (mfd > lsock ? mfd : lsock);
+#ifndef __CYGWIN__
 
-    while (1) {
-      fd_set f,e;
+/* Regenerate pollfd data for poll() */
 
-      FD_ZERO(&f);
-      FD_SET(mfd,&f);
-      FD_SET(lsock,&f);
+static u32 regen_pfds(struct pollfd* pfds, struct api_client** ctable) {
+  u32 i, count = 2;
 
-      FD_ZERO(&e);
-      FD_SET(mfd,&e);
-      FD_SET(lsock,&e);
+  pfds[0].fd     = pcap_fileno(pt);
+  pfds[0].events = (POLLIN | POLLERR | POLLHUP);
 
-      /* This is the neat way to do it; pcap timeouts are broken
-         on many platforms, Linux always resumes recvfrom() on the
-	 raw socket, even with no SA_RESTART, it's a mess... select()
-	 is rather neutral. */
+  DEBUG("[#] Recomputing pollfd data, pcap_fd = %d.\n", pfds[0].fd);
 
-      select(max,&f,0,&e,0);
+  if (!api_sock) return 1;
 
-      if (FD_ISSET(mfd, &f) || FD_ISSET(mfd,&e))
-        if (pcap_dispatch(pt,-1,(pcap_handler)&parse,0) < 0) break;
+  pfds[1].fd     = api_fd;
+  pfds[1].events = (POLLIN | POLLERR | POLLHUP);
 
-      if (FD_ISSET(lsock,&f)) {
-	struct timeval tv;
-        struct p0f_query q;
-        _s32 c;
+  for (i = 0; i < api_max_conn; i++) {
 
-        if ((c=accept(lsock,0,0))<0) continue;
+    if (api_cl[i].fd == -1) continue;
 
-        FD_ZERO(&f);
-        FD_SET(c,&f);
-        tv.tv_sec  = QUERY_TIMEOUT; 
-        tv.tv_usec = 0;
+    ctable[count] = api_cl + i;
 
-        if (select(c+1,&f,0,&f,&tv)>0)
-          if (recv(c,&q,sizeof(q),MSG_NOSIGNAL) == sizeof(q)) 
-            p0f_handlequery(c,&q,port0_wild);
+    /* If we haven't received a complete query yet, wait for POLLIN.
+       Otherwise, we want to write stuff. */
 
-        shutdown(c,2); 
-        close(c);
+    if (api_cl[i].in_off < sizeof(struct p0f_api_query))
+      pfds[count].events = (POLLIN | POLLERR | POLLHUP);
+    else
+      pfds[count].events = (POLLOUT | POLLERR | POLLHUP);
+
+    pfds[count++].fd   = api_cl[i].fd;
+
+  }
+
+  return count;
+
+}
+
+#endif /* !__CYGWIN__ */
+
+
+/* Event loop! Accepts and dispatches pcap data, API queries, etc. */
+
+static void live_event_loop(void) {
+
+#ifndef __CYGWIN__
+
+  /* The huge problem with winpcap on cygwin is that you can't get a file
+     descriptor suitable for poll() / select() out of it:
+
+     http://www.winpcap.org/pipermail/winpcap-users/2009-April/003179.html
+
+     The only alternatives seem to be additional processes / threads, a
+     nasty busy loop, or a ton of Windows-specific code. If you need APi
+     queries on Windows, you are welcome to fix this :-) */
+
+  struct pollfd *pfds;
+  struct api_client** ctable;
+  u32 pfd_count;
+
+  /* We need room for pcap, and possibly api_fd + api_clients. */
+
+  pfds = ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) *
+                  sizeof(struct pollfd));
+
+  ctable = ck_alloc((1 + (api_sock ? (1 + api_max_conn) : 0)) *
+                    sizeof(struct api_client*));
+
+  pfd_count = regen_pfds(pfds, ctable);
+
+  if (!daemon_mode) 
+    SAYF("[+] Entered main event loop.\n\n");
+
+  while (!stop_soon) {
+
+    s32 pret, i;
+    u32 cur;
+
+    /* We use a 250 ms timeout to keep Ctrl-C responsive without resortng to
+       silly sigaction hackery or unsafe signal handler code. */
+
+poll_again:
+
+    pret = poll(pfds, pfd_count, 250);
+
+    if (pret < 0) {
+      if (errno == EINTR) break;
+      PFATAL("poll() failed.");
+    }
+
+    if (!pret) { if (log_file) fflush(lf); continue; }
+
+    /* Examine pfds... */
+
+    for (cur = 0; cur < pfd_count; cur++) {
+
+      if (pfds[cur].revents & POLLOUT) switch (cur) {
+
+        case 0: case 1:
+
+          FATAL("Unexpected POLLOUT on fd %d.\n", cur);
+
+        default:
+
+          /* Write API response, restart state when complete. */
+
+          if (ctable[cur]->in_off < sizeof(struct p0f_api_query))
+            FATAL("Inconsistent p0f_api_response state.\n");
+
+          i = write(pfds[cur].fd, 
+                   ((char*)&ctable[cur]->out_data) + ctable[cur]->out_off,
+                   sizeof(struct p0f_api_response) - ctable[cur]->out_off);
+
+          if (i <= 0) PFATAL("write() on API socket fails despite POLLOUT.");
+
+          ctable[cur]->out_off += i;
+
+          /* All done? Back to square zero then! */
+
+          if (ctable[cur]->out_off == sizeof(struct p0f_api_response)) {
+
+             ctable[cur]->in_off = ctable[cur]->out_off = 0;
+             pfds[cur].events   = (POLLIN | POLLERR | POLLHUP);
+
+          }
 
       }
 
-      if (FD_ISSET(lsock,&e)) 
-        fatal("Query socket error.\n");
+      if (pfds[cur].revents & POLLIN) switch (cur) {
+ 
+        case 0:
+
+          /* Process traffic on the capture interface. */
+
+          if (pcap_dispatch(pt, -1, (pcap_handler)parse_packet, 0) < 0)
+            FATAL("Packet capture interface is down.");
+
+          break;
+
+        case 1:
+
+          /* Accept new API connection, limits permitting. */
+
+          if (!api_sock) FATAL("Unexpected API connection.");
+
+          if (pfd_count - 2 < api_max_conn) {
+
+            for (i = 0; i < api_max_conn && api_cl[i].fd >= 0; i++);
+
+            if (i == api_max_conn) FATAL("Inconsistent API connection data.");
+
+            api_cl[i].fd = accept(api_fd, NULL, NULL);
+
+            if (api_cl[i].fd < 0) {
+
+              WARN("Unable to handle API connection: accept() fails.");
+
+            } else {
+
+              if (fcntl(api_cl[i].fd, F_SETFL, O_NONBLOCK))
+                PFATAL("fcntl() to set O_NONBLOCK on API connection fails.");
+
+              api_cl[i].in_off = api_cl[i].out_off = 0;
+              pfd_count = regen_pfds(pfds, ctable);
+
+              DEBUG("[#] Accepted new API connection, fd %d.\n", api_cl[i].fd);
+
+              goto poll_again;
+
+            }
+
+          } else WARN("Too many API connections (use -S to adjust).\n");
+
+          break;
+
+        default:
+
+          /* Receive API query, dispatch when complete. */
+
+          if (ctable[cur]->in_off >= sizeof(struct p0f_api_query))
+            FATAL("Inconsistent p0f_api_query state.\n");
+
+          i = read(pfds[cur].fd, 
+                   ((char*)&ctable[cur]->in_data) + ctable[cur]->in_off,
+                   sizeof(struct p0f_api_query) - ctable[cur]->in_off);
+
+          if (i < 0) PFATAL("read() on API socket fails despite POLLIN.");
+
+          ctable[cur]->in_off += i;
+
+          /* Query in place? Compute response and prepare to send it back. */
+
+          if (ctable[cur]->in_off == sizeof(struct p0f_api_query)) {
+
+            handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data);
+            pfds[cur].events = (POLLOUT | POLLERR | POLLHUP);
+
+          }
+
+      }
+
+      if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
+
+        case 0:
+
+          FATAL("Packet capture interface is down.");
+
+        case 1:
+
+          FATAL("API socket is down.");
+
+        default:
+
+          /* Shut down API connection and free its state. */
+
+          DEBUG("[#] API connection on fd %d closed.\n", pfds[cur].fd);
+
+          close(pfds[cur].fd);
+          ctable[cur]->fd = -1;
+ 
+          pfd_count = regen_pfds(pfds, ctable);
+          goto poll_again;
+
+      }
+
+      /* Processed all reported updates already? If so, bail out early. */
+
+      if (pfds[cur].revents && !--pret) break;
 
     }
 
-  } else 
-#endif /* !WIN32 */
+  }
 
-  pcap_loop(pt,-1,(pcap_handler)&parse,0);
+#else
 
-  pcap_close(pt);
-  if (dumper) pcap_dump_close(dumper);
+  if (!daemon_mode) 
+    SAYF("[+] Entered main event loop.\n\n");
 
-  if (use_dump) debug("[+] End of input file.\n");
-    else fatal("Network is down.\n");
+  /* Ugh. The only way to keep SIGINT and other signals working is to have this
+     funny loop with dummy I/O every 250 ms. Signal handlers don't get called
+     in pcap_dispatch() or pcap_loop() unless there's I/O. */
+
+  while (!stop_soon) {
+
+    s32 ret = pcap_dispatch(pt, -1, (pcap_handler)parse_packet, 0);
+
+    if (ret < 0) return;
+
+    if (log_file && !ret) fflush(lf);
+
+    write(2, NULL, 0);
+
+  }
+
+#endif /* ^!__CYGWIN__ */
+
+  WARN("User-initiated shutdown.");
+
+  ck_free(ctable);
+  ck_free(pfds);
+
+}
+
+
+/* Simple event loop for processing offline captures. */
+
+static void offline_event_loop(void) {
+
+  if (!daemon_mode) 
+    SAYF("[+] Processing capture data.\n\n");
+
+  while (!stop_soon)  {
+
+    if (pcap_dispatch(pt, -1, (pcap_handler)parse_packet, 0) <= 0) return;
+
+  }
+
+  WARN("User-initiated shutdown.");
+
+}
+
+
+/* Main entry point */
+
+int main(int argc, char** argv) {
+
+  s32 r;
+
+  setlinebuf(stdout);
+
+  SAYF("--- p0f " VERSION " by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n");
+
+  if (getuid() != geteuid())
+    FATAL("Please don't make me setuid. See README for more.\n");
+
+  while ((r = getopt(argc, argv, "+LS:df:i:m:o:pr:s:t:u:")) != -1) switch (r) {
+
+    case 'L':
+
+      list_interfaces();
+      exit(0);
+
+    case 'S':
+
+#ifdef __CYGWIN__
+
+      FATAL("API mode not supported on Windows (see README).");
+
+#else
+
+      if (api_max_conn != API_MAX_CONN)
+        FATAL("Multiple -S options not supported.");
+
+      api_max_conn = atol(optarg);
+
+      if (!api_max_conn || api_max_conn > 100)
+        FATAL("Outlandish value specified for -S.");
+
+      break;
+
+#endif /* ^__CYGWIN__ */
+
+
+    case 'd':
+
+      if (daemon_mode)
+        FATAL("Double werewolf mode not supported yet.");
+
+      daemon_mode = 1;
+      break;
+
+    case 'f':
+
+      if (fp_file)
+        FATAL("Multiple -f options not supported.");
+
+      fp_file = (u8*)optarg;
+      break;
+
+    case 'i':
+
+      if (use_iface)
+        FATAL("Multiple -i options not supported (try '-i any').");
+
+      use_iface = (u8*)optarg;
+
+      break;
+
+    case 'm':
+
+      if (max_conn != MAX_CONN || max_hosts != MAX_HOSTS)
+        FATAL("Multiple -m options not supported.");
+
+      if (sscanf(optarg, "%u,%u", &max_conn, &max_hosts) != 2 ||
+          !max_conn || max_conn > 100000 ||
+          !max_hosts || max_hosts > 500000)
+        FATAL("Outlandish value specified for -m.");
+
+      break;
+
+    case 'o':
+
+      if (log_file)
+        FATAL("Multiple -o options not supported.");
+
+      log_file = (u8*)optarg;
+
+      break;
+
+    case 'p':
+    
+      if (set_promisc)
+        FATAL("Even more promiscuous? People will call me slutty!");
+
+      set_promisc = 1;
+      break;
+
+    case 'r':
+
+      if (read_file)
+        FATAL("Multiple -r options not supported.");
+
+      read_file = (u8*)optarg;
+
+      break;
+
+    case 's':
+
+#ifdef __CYGWIN__
+
+      FATAL("API mode not supported on Windows (see README).");
+
+#else
+
+      if (api_sock) 
+        FATAL("Multiple -s options not supported.");
+
+      api_sock = (u8*)optarg;
+
+      break;
+
+#endif /* ^__CYGWIN__ */
+
+    case 't':
+
+      if (conn_max_age != CONN_MAX_AGE || host_idle_limit != HOST_IDLE_LIMIT)
+        FATAL("Multiple -t options not supported.");
+
+      if (sscanf(optarg, "%u,%u", &conn_max_age, &host_idle_limit) != 2 ||
+          !conn_max_age || conn_max_age > 1000000 ||
+          !host_idle_limit || host_idle_limit > 1000000)
+        FATAL("Outlandish value specified for -t.");
+
+      break;
+
+    case 'u':
+
+      if (switch_user)
+        FATAL("Split personality mode not supported.");
+
+      switch_user = (u8*)optarg;
+
+      break;
+
+    default: usage();
+
+  }
+
+  if (optind < argc) {
+
+    if (optind + 1 == argc) orig_rule = (u8*)argv[optind];
+    else FATAL("Filter rule must be a single parameter (use quotes).");
+
+  }
+
+  if (read_file && api_sock)
+    FATAL("API mode looks down on ofline captures.");
+
+  if (!api_sock && api_max_conn != API_MAX_CONN)
+    FATAL("Option -S makes sense only with -s.");
+
+  if (daemon_mode) {
+
+    if (read_file)
+      FATAL("Daemon mode and offline captures don't mix.");
+
+    if (!log_file && !api_sock)
+      FATAL("Daemon mode requires -o or -s.");
+
+#ifdef __CYGWIN__
+
+    if (switch_user) 
+      SAYF("[!] Note: under cygwin, -u is largely useless.\n");
+
+#else
+
+    if (!switch_user) 
+      SAYF("[!] Consider specifying -u in daemon mode (see README).\n");
+
+#endif /* ^__CYGWIN__ */
+
+  }
+
+  tzset();
+  setlocale(LC_TIME, "C");
+
+  close_spare_fds();
+
+  get_hash_seed();
+
+  http_init();
+
+  read_config(fp_file ? fp_file : (u8*)FP_FILE);
+
+  prepare_pcap();
+  prepare_bpf();
+
+  if (log_file) open_log();
+  if (api_sock) open_api();
+  
+  if (daemon_mode) {
+    null_fd = open("/dev/null", O_RDONLY);
+    if (null_fd < 0) PFATAL("Cannot open '/dev/null'.");
+  }
+  
+  if (switch_user) drop_privs();
+
+  if (daemon_mode) fork_off();
+
+  signal(SIGHUP, daemon_mode ? SIG_IGN : abort_handler);
+  signal(SIGINT, abort_handler);
+  signal(SIGTERM, abort_handler);
+
+  if (read_file) offline_event_loop(); else live_event_loop();
+
+  if (!daemon_mode)
+    SAYF("\nAll done. Processed %llu packets.\n", packet_cnt);
+
+#ifdef DEBUG_BUILD
+  destroy_all_hosts();
+  TRK_report();
+#endif /* DEBUG_BUILD */
 
   return 0;
 
 }
-
