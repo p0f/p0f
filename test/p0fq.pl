@@ -18,6 +18,7 @@ use IO::Socket;
 use Net::IP;
 
 my $QUERY_MAGIC = 0x0defaced;
+my $QTYPE_FINGERPRINT = 1;
 
 die "usage: p0fq.pl p0f_socket src_ip src_port dst_ip dst_port"
   unless $#ARGV == 4;
@@ -25,7 +26,7 @@ die "usage: p0fq.pl p0f_socket src_ip src_port dst_ip dst_port"
 # Convert the IPs and pack the request message
 my $src = new Net::IP ($ARGV[1]) or die (Net::IP::Error());
 my $dst = new Net::IP ($ARGV[3]) or die (Net::IP::Error());
-my $query = pack("L L N N S S", $QUERY_MAGIC, 0x12345678,
+my $query = pack("L L L N N S S", $QUERY_MAGIC, $QTYPE_FINGERPRINT, 0x12345678,
                  $src->intip(), $dst->intip(), $ARGV[2], $ARGV[4]);
 
 # Open the connection to p0f

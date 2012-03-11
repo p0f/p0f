@@ -25,21 +25,23 @@ all: $(FILE) strip
 static: $(FILE)-static
 
 $(FILE): $(FILE).c
-	$(CC) $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c crc32.c $(LIBS)
 
 $(FILE)-static: $(FILE).c 
-	$(CC) -static $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c $(LIBS)
+	$(CC) -static $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c crc32.c $(LIBS)
 
 strip:
 	strip $(FILE) 2>/dev/null || true
 
 p0fq: test/p0fq
 
+p0fping: test/p0fping
+
 tools: $(TOOLS)
 
 clean:
 	rm -f core core.[0123456789]* *~ *.o $(FILE) a.out $(FILE)-static \
-	  test/p0fq $(TOOLS)
+	  test/p0fq test/p0fping $(TOOLS)
 
 publish: clean
 	cd ..;tar cfvz /tmp/p0f.tgz p0f

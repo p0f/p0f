@@ -37,9 +37,12 @@
 #define D_TIME    0x4000
 #define D_FAR     0x8000
 
+#define QTYPE_FINGERPRINT	1
+#define QTYPE_STATUS		2
 
 struct p0f_query {
   _u32 magic;			/* must be set to QUERY_MAGIC */
+  _u8  type;			/* QTYPE_* */
   _u32 id;			/* Unique query ID */
   _u32 src_ad,dst_ad;		/* src address, local dst addr */
   _u16 src_port,dst_port;	/* src and dst ports */
@@ -48,11 +51,13 @@ struct p0f_query {
 #define RESP_OK		0	/* Response OK */
 #define RESP_BADQUERY	1	/* Query malformed */
 #define RESP_NOMATCH	2	/* No match for src-dst data */
+#define RESP_STATUS     255     /* Status information */
 
 struct p0f_response {
   _u32 magic;			/* QUERY_MAGIC */
   _u32 id;			/* Query ID (copied from p0f_query) */
   _u8  type;			/* RESP_* */
+  
   _u8  genre[20];		/* OS genre (empty if no match) */
   _u8  detail[40];		/* OS version (empty if no match) */
   _s8  dist;			/* Distance (-1 if unknown ) */
@@ -65,6 +70,22 @@ struct p0f_response {
   _s32 uptime;			/* Uptime in hours (-1 = unknown) */
 };
 
+
+struct p0f_status {
+  _u32 magic;			/* QUERY_MAGIC */
+  _u32 id;			/* Query ID (copied from p0f_query) */
+  _u8  type;                    /* RESP_STATUS */
+  
+  _u8  version[16];		/* p0f version */
+  _u8  mode;			/* p0f mode (S - SYN; A - SYN+ACK, R - RST, O - stray) */
+  _u32 fp_cksum;                /* Fingerprint file checksum */
+  _u32 cache;			/* p0f query cache size */
+  _u32 packets;			/* Total number of all packet received */
+  _u32 matched;			/* Total number of packets matched */
+  _u32 queries;			/* Total number of queries handled */
+  _u32 cmisses;			/* Total number of cache query misses */
+  _u32 uptime;			/* Process uptime in seconds */
+};
 
 /* --------------------------------------- */
 /* This is an internal API, do not bother: */

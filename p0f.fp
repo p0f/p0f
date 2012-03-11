@@ -372,50 +372,48 @@ S1:64:0:44:M*:A:Linux:1.2.x
 64:64:0:44:M*:.:Linux:2.0.3x (MkLinux) on Mac (2)
 
 S4:64:1:60:M1360,S,T,N,W0:.:Linux:2.4 (Google crawlbot)
+S4:64:1:60:M1430,S,T,N,W0:.:Linux:2.4-2.6 (Google crawlbot)
 
-S2:64:1:60:M*,S,T,N,W0:.:Linux:2.4 (big boy)
-S3:64:1:60:M*,S,T,N,W0:.:Linux:2.4.18 and newer
-S4:64:1:60:M*,S,T,N,W0:.:Linux:2.4/2.6
-S4:64:1:60:M*,S,T,N,W7:.:Linux:2.6.8 and newer (?)
+S2:64:1:60:M*,S,T,N,W0:.:Linux:2.4 (large MTU?)
+S3:64:1:60:M*,S,T,N,W0:.:Linux:2.4 (newer)
+S4:64:1:60:M*,S,T,N,W0:.:Linux:2.4-2.6
 
-S3:64:1:60:M*,S,T,N,W1:.:Linux:2.5/2.6 (seldom 2.4) (1)
-S4:64:1:60:M*,S,T,N,W1:.:Linux:2.5/2.6 (seldom 2.4) (2)
-S3:64:1:60:M*,S,T,N,W2:.:Linux:2.5/2.6 (seldom 2.4) (3)
-S4:64:1:60:M*,S,T,N,W2:.:Linux:2.5/2.6 (seldom 2.4) (4)
-S4:64:0:60:M1452,S,T,N,W5:.:Linux:2.6.17 and newer
+S3:64:1:60:M*,S,T,N,W1:.:Linux:2.6, seldom 2.4 (older, 1)
+S4:64:1:60:M*,S,T,N,W1:.:Linux:2.6, seldom 2.4 (older, 2)
+S3:64:1:60:M*,S,T,N,W2:.:Linux:2.6, seldom 2.4 (older, 3)
+S4:64:1:60:M*,S,T,N,W2:.:Linux:2.6, seldom 2.4 (older, 4)
+T4:64:1:60:M*,S,T,N,W2:.:Linux:2.6 (older, 5)
 
-S4:64:1:52:M*,N,N,S,N,W2:.:Linux:2.6.11 and newer (1)
-T4:64:1:60:M*,S,T,N,W2:.:Linux:2.6.11 and newer (2)
-T4:64:1:60:M*,S,T,N,W7:.:Linux:2.6.11 and newer (bloat) (3)
-32767:64:1:60:M16396,S,T,N,W2:.:Linux:2.6.11 and newer (loopback)
-S4:64:1:44:M*:.:Linux:2.6.11 and newer (4)
+S4:64:1:60:M*,S,T,N,W5:.:Linux:2.6 (newer, 1)
+S4:64:1:60:M*,S,T,N,W6:.:Linux:2.6 (newer, 2)
+S4:64:1:60:M*,S,T,N,W7:.:Linux:2.6 (newer, 3)
+T4:64:1:60:M*,S,T,N,W7:.:Linux:2.6 (newer, 4)
 
-S20:64:1:60:M*,S,T,N,W0:.:Linux:2.2.20 and newer
-S22:64:1:60:M*,S,T,N,W0:.:Linux:2.2 (1)
-S11:64:1:60:M*,S,T,N,W0:.:Linux:2.2 (2)
+
+S20:64:1:60:M*,S,T,N,W0:.:Linux:2.2 (1)
+S22:64:1:60:M*,S,T,N,W0:.:Linux:2.2 (2)
+S11:64:1:60:M*,S,T,N,W0:.:Linux:2.2 (3)
 
 # Popular cluster config scripts disable timestamps and
 # selective ACK:
 
 S4:64:1:48:M1460,N,W0:.:Linux:2.4 in cluster
 
-# This needs to be investigated. On some systems, WSS
-# is selected as a multiple of MTU instead of MSS. I got
-# many submissions for this for many late versions of 2.4:
-
-T4:64:1:60:M1412,S,T,N,W0:.:Linux:2.4 (late, uncommon)
-
 # This happens only over loopback, but let's make folks happy:
-32767:64:1:60:M16396,S,T,N,W0:.:Linux:2.4 (local)
-S8:64:1:60:M3884,S,T,N,W0:.:Linux:2.2 (local)
+32767:64:1:60:M16396,S,T,N,W0:.:Linux:2.4 (loopback)
+32767:64:1:60:M16396,S,T,N,W2:.:Linux:2.6 (newer, loopback)
+S8:64:1:60:M3884,S,T,N,W0:.:Linux:2.2 (loopback)
 
 # Opera visitors:
 16384:64:1:60:M*,S,T,N,W0:.:-Linux:2.2 (Opera?)
 32767:64:1:60:M*,S,T,N,W0:.:-Linux:2.4 (Opera?)
 
-# Some fairly common mods:
-S4:64:1:52:M*,N,N,S,N,W0:.:Linux:2.4 w/o timestamps
-S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
+# Some fairly common mods & oddities:
+S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 (tstamp-)
+S4:64:1:52:M*,N,N,S,N,W0:.:Linux:2.4 (tstamp-)
+S4:64:1:52:M*,N,N,S,N,W2:.:Linux:2.6 (tstamp-)
+S4:64:1:44:M*:.:Linux:2.6? (barebone, rare!)
+T4:64:1:60:M1412,S,T,N,W0:.:Linux:2.4 (rare!)
 
 # ----------------- FreeBSD -----------------
 
@@ -424,23 +422,23 @@ S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
 
 1024:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.4 (2)
 
-57344:64:1:44:M*:.:FreeBSD:4.6-4.8 (no RFC1323)
+57344:64:1:44:M*:.:FreeBSD:4.6-4.8 (RFC1323-)
 57344:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.6-4.9
 
 32768:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.8-5.1 (or MacOS X 10.2-10.3)
 65535:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.7-5.2 (or MacOS X 10.2-10.4) (1)
 65535:64:1:60:M*,N,W1,N,N,T:.:FreeBSD:4.7-5.2 (or MacOS X 10.2-10.4) (2)
 
-65535:64:1:60:M*,N,W0,N,N,T:Z:FreeBSD:5.1-current (1)
-65535:64:1:60:M*,N,W1,N,N,T:Z:FreeBSD:5.1-current (2)
-65535:64:1:60:M*,N,W2,N,N,T:Z:FreeBSD:5.1-current (3)
+65535:64:1:60:M*,N,W0,N,N,T:Z:FreeBSD:5.1 (1)
+65535:64:1:60:M*,N,W1,N,N,T:Z:FreeBSD:5.1 (2)
+65535:64:1:60:M*,N,W2,N,N,T:Z:FreeBSD:5.1 (3)
 65535:64:1:64:M*,N,N,S,N,W1,N,N,T:.:FreeBSD:5.3-5.4
-65535:64:1:64:M*,N,W1,N,N,T,S,E:P:FreeBSD:6-current
-65535:64:1:64:M*,N,W0,N,N,T,S,E:P:FreeBSD:6.0-release / 6.1-pre
+65535:64:1:64:M*,N,W1,N,N,T,S,E:P:FreeBSD:6.x (1)
+65535:64:1:64:M*,N,W0,N,N,T,S,E:P:FreeBSD:6.x (2)
 
-65535:64:1:44:M*:Z:FreeBSD:5.2 (no RFC1323)
+65535:64:1:44:M*:Z:FreeBSD:5.2 (RFC1323-)
 
-# 16384:64:1:60:M*,N,N,N,N,N,N,T:.:FreeBSD:4.4 (w/o timestamps)
+# 16384:64:1:60:M*,N,N,N,N,N,N,T:.:FreeBSD:4.4 (tstamp-)
 
 # ----------------- NetBSD ------------------
 
@@ -458,19 +456,19 @@ S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
 16384:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.9
 57344:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.3-3.4
 16384:64:0:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.4 (scrub)
-65535:64:1:64:M*,N,N,S,N,W0,N,N,T:.:-OpenBSD:3.0-3.4 (Opera)
+65535:64:1:64:M*,N,N,S,N,W0,N,N,T:.:-OpenBSD:3.0-3.4 (Opera?)
 32768:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.7
 
 # ----------------- Solaris -----------------
 
 S17:64:1:64:N,W3,N,N,T0,N,N,S,M*:.:Solaris:8 (RFC1323 on)
 S17:64:1:48:N,N,S,M*:.:Solaris:8 (1)
-S17:255:1:44:M*:.:Solaris:2.5 to 7
+S17:255:1:44:M*:.:Solaris:2.5-7 (1)
 
 # Sometimes, just sometimes, Solaris feels like coming up with
 # rather arbitrary MSS values ;-)
 
-S6:255:1:44:M*:.:Solaris:2.5-7
+S6:255:1:44:M*:.:Solaris:2.5-7 (2)
 S23:64:1:48:N,N,S,M*:.:Solaris:8 (2)
 S34:64:1:48:M*,N,N,S:.:Solaris:9
 S34:64:1:48:M*,N,N,N,N:.:Solaris:9 (no sack)
@@ -479,15 +477,15 @@ S44:255:1:44:M*:.:Solaris:7
 4096:64:0:44:M1460:.:SunOS:4.1.x
 
 S34:64:1:52:M*,N,W0,N,N,S:.:Solaris:10 (beta)
-32850:64:1:64:M*,N,N,T,N,W1,N,N,S:.:Solaris:10 1203
+32850:64:1:64:M*,N,N,T,N,W1,N,N,S:.:Solaris:10 (1203?)
 32850:64:1:64:M*,N,W1,N,N,T,N,N,S:.:Solaris:9.1
 
 # ----------------- IRIX --------------------
 
 49152:60:0:44:M*:.:IRIX:6.2-6.4
 61440:60:0:44:M*:.:IRIX:6.2-6.5
-49152:60:0:52:M*,N,W2,N,N,S:.:IRIX:6.5 (RFC1323) (1)
-49152:60:0:52:M*,N,W3,N,N,S:.:IRIX:6.5 (RFC1323) (2)
+49152:60:0:52:M*,N,W2,N,N,S:.:IRIX:6.5 (RFC1323+) (1)
+49152:60:0:52:M*,N,W3,N,N,S:.:IRIX:6.5 (RFC1323+) (2)
 
 61440:60:0:48:M*,N,N,S:.:IRIX:6.5.12-6.5.21 (1)
 49152:60:0:48:M*,N,N,S:.:IRIX:6.5.12-6.5.21 (2)
@@ -515,8 +513,8 @@ S2:255:1:48:M*,W0,E:.:MacOS:8.6 classic
 16616:255:1:48:M*,N,N,N,E:.:MacOS:8.1-8.6 (OTTCP)
 32768:255:1:48:M*,W0,N:.:MacOS:9.0-9.2
 
-32768:255:1:48:M1380,N,N,N,N:.:MacOS:9.1 (1) (OT 2.7.4)
-65535:255:1:48:M*,N,N,N,N:.:MacOS:9.1 (2) (OT 2.7.4)
+32768:255:1:48:M1380,N,N,N,N:.:MacOS:9.1 (OT 2.7.4) (1)
+65535:255:1:48:M*,N,N,N,N:.:MacOS:9.1 (OT 2.7.4) (2)
 
 # ----------------- Windows -----------------
 
@@ -546,7 +544,7 @@ S12:64:1:48:M*,N,N,S:.:Windows:98 (3
 T30:64:1:64:M1460,N,W0,N,N,T0,N,N,S:.:Windows:98 (16)
 32767:64:1:48:M*,N,N,S:.:Windows:98 (4)
 37300:64:1:48:M*,N,N,S:.:Windows:98 (5)
-46080:64:1:52:M*,N,W3,N,N,S:.:Windows:98 (RFC1323)
+46080:64:1:52:M*,N,W3,N,N,S:.:Windows:98 (RFC1323+)
 65535:64:1:44:M*:.:Windows:98 (no sack)
 S16:128:1:48:M*,N,N,S:.:Windows:98 (6)
 S16:128:1:64:M*,N,W0,N,N,T0,N,N,S:.:Windows:98 (7)
@@ -566,7 +564,7 @@ T31:128:1:44:M1414:.:Windows:NT 4.0 SP6a (1)
 # were deleted and replaced with generics at the end.
 
 65535:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP1+
-%8192:128:1:48:M*,N,N,S:.:Windows:2000 SP2+, XP SP1+ (seldom 98 4.10.2222)
+%8192:128:1:48:M*,N,N,S:.:Windows:2000 SP2+, XP SP1+ (seldom 98)
 S20:128:1:48:M*,N,N,S:.:Windows:SP3
 S45:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP1+ (2)
 40320:128:1:48:M*,N,N,S:.:Windows:2000 SP4
@@ -605,7 +603,7 @@ S6:255:1:48:M536,N,N,S:.:Windows:95 winsock 2
 32768:64:1:48:M*,W0,N:.:HP-UX:11.00-11.11
 
 # Whoa. Hardcore WSS.
-0:64:0:48:M*,W0,N:.:HP-UX:B.11.00 A (RFC1323)
+0:64:0:48:M*,W0,N:.:HP-UX:B.11.00 A (RFC1323+)
 
 # ----------------- RiscOS ------------------
 
@@ -727,10 +725,13 @@ S4:255:0:44:M536:Z:Cisco:IOS 11.0
 
 # ---------- Caches and whatnots ------------
 
+8190:255:0:44:M1428:.:Google:Wireless Transcoder (1)
+8190:255:0:44:M1460:.:Google:Wireless Transcoder (2)
 8192:64:1:64:M1460,N,N,S,N,W0,N,N,T:.:NetCache:5.2
 16384:64:1:64:M1460,N,N,S,N,W0,N:.:NetCache:5.3
 65535:64:1:64:M1460,N,N,S,N,W*,N,N,T:.:NetCache:5.3-5.5 (or FreeBSD 5.4)
 20480:64:1:64:M1460,N,N,S,N,W0,N,N,T:.:NetCache:4.1
+S44:64:1:64:M1460,N,N,S,N,W0,N,N,T:.:NetCache:5.5
 
 32850:64:1:64:N,W1,N,N,T,N,N,S,M*:.:NetCache:Data OnTap 5.x
 
@@ -821,11 +822,11 @@ S23:64:1:64:N,W1,N,N,T,N,N,S,M1380:.:@Mysterious:GPRS gateway (?)
 # Generic signatures - just in case #
 #####################################
 
-*:128:1:52:M*,N,W0,N,N,S:.:@Windows:XP/2000 (RFC1323, w, tstamp-)
-*:128:1:52:M*,N,W*,N,N,S:.:@Windows:XP/2000 (RFC1323, w+, tstamp-)
-*:128:1:52:M*,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323, w-, tstamp)
-*:128:1:64:M*,N,W0,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323, w, tstamp)
-*:128:1:64:M*,N,W*,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323, w+, tstamp)
+*:128:1:52:M*,N,W0,N,N,S:.:@Windows:XP/2000 (RFC1323+, w, tstamp-)
+*:128:1:52:M*,N,W*,N,N,S:.:@Windows:XP/2000 (RFC1323+, w+, tstamp-)
+*:128:1:52:M*,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323+, w-, tstamp+)
+*:128:1:64:M*,N,W0,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323+, w, tstamp+)
+*:128:1:64:M*,N,W*,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323+, w+, tstamp+)
 
 *:128:1:48:M536,N,N,S:.:@Windows:98
 *:128:1:48:M*,N,N,S:.:@Windows:XP/2000

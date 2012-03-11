@@ -22,6 +22,9 @@ publish:
 p0fq:
 	./Build $@
 
+p0fping:
+	./Build $@
+
 tools:
 	./Build $@
 

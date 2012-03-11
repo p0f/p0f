@@ -104,9 +104,10 @@ S23:60:0:48:M*,N,W0:A:Tru64:5.0 (1)
 
 # ----------------- Solaris ----------------
 
-49232:64:1:64:N,N,T,M*,N,W0,N,N,S:AT:Solaris:9
+49232:64:1:64:N,N,T,M*,N,W0,N,N,S:AT:Solaris:9 (1)
 S1:255:1:60:N,N,T,N,W0,M*:AT:Solaris:7
 24656:64:1:44:M*:A:Solaris:8
+33304:64:1:60:N,N,T,M*,N,W1:AT:Solaris:9 (2)
 
 # ----------------- FreeBSD ----------------
 
@@ -196,7 +197,8 @@ S4:60:0:44:M1460:A:HP:JetDirect A.05.32
 8576:64:1:44:M*:A:Raptor:firewall
 S12:64:1:44:M1400:A:Cequrux Firewall:4.x
 2048:255:0:44:M1400:A:Netgear:MR814
-16384:113:0:64:M1460,N,W0,N,N,T0,N,N,S:A:Akamai:???
+16384:128:0:64:M1460,N,W0,N,N,T0,N,N,S:A:Akamai:??? (1)
+16384:128:0:60:M1460,N,W0,N,N,T0:A:Akamai:??? (2)
 
 8190:255:0:44:M1452:A:Citrix:Netscaler 6.1
 

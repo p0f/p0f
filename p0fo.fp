@@ -44,3 +44,5 @@
 32736:64:0:*:.:A:Linux:2.0.3x
 
 57600:64:1:*:N,N,T:AT:FreeBSD:4.8
+%12:128:1:*:.:A:Windows:XP
+S44:128:1:*:.:A:Windows:XP

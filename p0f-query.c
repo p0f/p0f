@@ -22,6 +22,7 @@
 #endif
 #include <string.h>
 
+#include <time.h>
 #include <sys/types.h>
 
 #include "p0f-query.h"
@@ -44,11 +45,15 @@ static _s32 QUERY_CACHE;
 static _u16 flags;
 static _s16 score = NO_SCORE;
 
+/* Imports for statistics */
+_u32 packet_count, matched_packets, st_time, file_cksum;
+_u8  operating_mode;
+
 #define SAD_HASH(a)	((((a) << 16) ^ ((a) << 8) ^ (a)))
 
 void p0f_initcache(_u32 csiz) {
   QUERY_CACHE = csiz;
-  c = calloc(1,csiz * sizeof(struct cache_data));
+  c = calloc(csiz, sizeof(struct cache_data));
   if (!c) {
     fprintf(stderr,"[!] ERROR: Not enough memory for query cache.\n");
     exit(1);
@@ -94,11 +99,15 @@ void p0f_addcache(_u32 saddr,_u32 daddr,_u16 sport,_u16 dport,
 #define SUBMOD(val,max)	((val) < 0 ? ((max) + (val)) : (val))
 
 #ifndef WIN32
+
+static _u32 qcount, mcount;
+
 void p0f_handlequery(_s32 sock,struct p0f_query* q,_u8 wild) {
 
   _s32 i;
 
-  if (q->magic != QUERY_MAGIC) {
+  if (q->magic != QUERY_MAGIC || 
+      (q->type != QTYPE_FINGERPRINT && q->type != QTYPE_STATUS)) {
     struct p0f_response r;
     bzero(&r,sizeof(r));
     r.magic = QUERY_MAGIC;
@@ -107,6 +116,29 @@ void p0f_handlequery(_s32 sock,struct p0f_query* q,_u8 wild) {
     send(sock,&r,sizeof(r),MSG_NOSIGNAL);
     return;
   }
+  
+  if (q->type == QTYPE_STATUS) {
+    struct p0f_status s;
+    s.magic    = QUERY_MAGIC;
+    s.id       = q->id;
+    s.type     = RESP_STATUS;
+    s.mode     = operating_mode;
+    s.fp_cksum = file_cksum;
+    s.cache    = QUERY_CACHE;
+    s.packets  = packet_count;
+    s.matched  = matched_packets;
+    s.queries  = qcount;
+    s.cmisses  = mcount;
+    s.uptime   = time(0) - st_time;
+    
+    strncpy(s.version, VER, sizeof(s.version)-1);
+    s.version[sizeof(s.version)-1]=0;
+  
+    send(sock,&s,sizeof(struct p0f_status),MSG_NOSIGNAL);
+    return;
+  }
+  
+  qcount++;
   
   /* Honor wildcards only when src port is 0 */
   if (wild && q->src_port) wild = 0;
@@ -131,6 +163,7 @@ void p0f_handlequery(_s32 sock,struct p0f_query* q,_u8 wild) {
 
   {
     struct p0f_response r;
+    mcount++;
     bzero(&r,sizeof(r));
     r.magic = QUERY_MAGIC;
     r.type  = RESP_NOMATCH;

@@ -6,7 +6,7 @@
                     "Dr. Jekyll had something to Hyde"
 		    
                       passive OS fingerprinting tool
-                               version 2.0.7
+                               version 2.0.8
 
      (C) Copyright 2000 - 2006 by Michal Zalewski <lcamtuf@coredump.cx>
 
@@ -304,7 +304,8 @@
 
               A sample query tool (p0fq) is provided in the test/ 
               subdirectory. There is also a trivial perl implementation of 
-              a client available.
+              a client available; finally, test/p0fping.c can be used to
+	      check the status of the socket prior to queries.
 
               NOTE: The socket will be created with permissions corresponding
               to your current umask. If you want to restrict access to this 
@@ -509,6 +510,7 @@
 
     magic	- must be set to QUERY_MAGIC,
     id		- query ID, copied literally to the response,
+    type        - query type (must be QTYPE_FINGERPRINT)
     src_ad	- source address,
     dst_ad	- destination address,
     src_port	- source port,
@@ -528,6 +530,23 @@
     real	- "real" OS versus userland stack,
     score	- masquerade score (or NO_SCORE), see next section,
     mflags	- exact masquerade flags (D_*), see next section.
+
+  There's also a special type of queries, where type = QTYPE_STATUS,
+  and subsequent fields are irrelevant (should be zero); this returns
+  a different structure:
+  
+    magic	- must be set to QUERY_MAGIC,
+    id		- copied from the query
+    type	- must be set to RESP_STATUS (or RESP_BADQUERY on error)
+    version[16]	- p0f version
+    mode	- p0f mode (ASCII character, same as in command-line options)
+    fp_cksum	- checksum of the fingerprint file for versioning purposes
+    cache	- cache size
+    packets	- total number of packets analyzed
+    matched	- total number of OSes recognized
+    queries	- total number of queries handled
+    cmisses     - cache misses (for cache size debugging)
+    uptime	- process uptime in seconds
 
   The connection is one-shot. Always send the query and recv the
   response immediately after connect - p0f handles the connection in

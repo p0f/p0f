@@ -43,6 +43,7 @@ static struct mtu_def mtu[] = {
   {  1456, "ISDN ppp" },
   {  1458, "BT DSL (?)" },
   {  1462, "sometimes DSL (5)" },
+  {  1470, "(Google 2)" },
   {  1476, "IPSec/GRE" },
   {  1480, "IPv6/IPIP" },
   {  1492, "pppoe (DSL)" },

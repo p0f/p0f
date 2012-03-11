@@ -54,6 +54,7 @@
 #include "tos.h"
 #include "fpentry.h"
 #include "p0f-query.h"
+#include "crc32.h"
 
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
@@ -142,7 +143,11 @@ static _u8 no_extra,
 static pcap_t *pt;
 static struct bpf_program flt;
 
-static _u32 st_time,pkcnt;
+/* Exports for p0f statistics */
+_u32 packet_count;
+_u8  operating_mode;
+_u32 st_time;
+_u32 file_cksum;
 
 
 static void die_nicely(_s32 sig) {
@@ -150,8 +155,8 @@ static void die_nicely(_s32 sig) {
   if (pt) pcap_close(pt);
   if (dumper) pcap_dump_close(dumper);
 
-  if (!no_banner && pkcnt) {
-    float r = pkcnt * 60;
+  if (!no_banner && packet_count) {
+    float r = packet_count * 60;
     
     r /= (time(0) - st_time);
 
@@ -496,7 +501,6 @@ reloop:
 }
 
 
-
 static void load_config(_u8* file) {
   _u32 ln=0;
   _u8 buf[MAXLINE];
@@ -522,6 +526,8 @@ static void load_config(_u8* file) {
     _u8* gptr = genre;
     _u32 t,d,s;
     struct fp_entry* e;
+    
+    file_cksum ^= crc32(buf, strlen(buf));
       
     ln++;
 
@@ -939,9 +945,7 @@ static void dump_payload(_u8* data,_u16 dlen) {
 }
 
   
-
-  
-
+_u32 matched_packets;
 
 static inline void find_match(_u16 tot,_u8 df,_u8 ttl,_u16 wss,_u32 src,
                        _u32 dst,_u16 sp,_u16 dp,_u8 ocnt,_u8* op,_u16 mss,
@@ -1036,6 +1040,8 @@ re_lookup:
 continue_fuzzy:    
     
     /* Match! */
+    
+    matched_packets++;
 
     if (mss & wss) {
       if (p->wsize_mod == MOD_MSS) {
@@ -1259,7 +1265,7 @@ static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
   _u32   tstamp = 0;
   _u32   quirks = 0;
 
-  pkcnt++;
+  packet_count++;
 
   if (dumper) pcap_dump((_u8*)dumper,pph,packet);
 
@@ -1488,6 +1494,7 @@ end_parsing:
 }
 
 
+
 int main(int argc,char** argv) {
   _u8 buf[MAXLINE*4];
   _s32 r;
@@ -1659,6 +1666,7 @@ int main(int argc,char** argv) {
     lsock = socket(PF_UNIX,SOCK_STREAM,0);
     if (lsock < 0) pfatal("socket");
 
+    memset(&x,0,sizeof(x));
     x.sun_family = AF_UNIX;
     strncpy(x.sun_path,use_cache,63);
     unlink(use_cache);
@@ -1711,10 +1719,10 @@ int main(int argc,char** argv) {
     }
 
   if (!no_banner) {
-    debug("p0f: listening (%s) on '%s', %d sigs (%d generic), rule: '%s'.\n",
+    debug("p0f: listening (%s) on '%s', %d sigs (%d generic, cksum %08X), rule: '%s'.\n",
           ack_mode ? "SYN+ACK" : rst_mode ? "RST+" :
           open_mode ? "OPEN" : "SYN",
-          use_dump?use_dump:use_iface,sigcnt,gencnt,
+          use_dump?use_dump:use_iface,sigcnt,gencnt,file_cksum,
           argv[optind]?argv[optind]:"all");
 
     if (use_cache) debug("[*] Accepting queries at socket %s (timeout: %d s).\n",use_cache,QUERY_TIMEOUT);
@@ -1730,6 +1738,12 @@ int main(int argc,char** argv) {
       exit(1);
     }
   }
+  
+  /* For p0f statistics */
+  if (ack_mode) operating_mode = 'A'; 
+  else if (rst_mode) operating_mode = 'R';
+  else if (open_mode) operating_mode = 'O';
+  else operating_mode = 'S';
 
 #ifndef WIN32
 
@@ -1742,6 +1756,10 @@ int main(int argc,char** argv) {
 
     pw = getpwnam(set_user);
     if (!pw) fatal("user %s not found.\n",set_user);
+    
+    if (use_cache && chown(use_cache,pw->pw_uid,pw->pw_gid)) 
+      debug("[!] Failed to set ownership of query socket.");
+ 
     if (chdir(pw->pw_dir)) pfatal(pw->pw_dir);
     if (chroot(pw->pw_dir)) pfatal("chroot");
     chdir("/");

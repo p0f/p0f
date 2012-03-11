@@ -1,3 +1,14 @@
+Version 2.0.8:
+-------------
+
+  More fingerprints, signature cleanup.
+  
+  p0fping.c and diagnostic queries added.
+  
+  Socket ownership fix when dropping privs.
+
+  Some -O signatures.
+
 Version 2.0.7:
 --------------
 

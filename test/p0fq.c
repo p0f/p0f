@@ -58,13 +58,15 @@ int main(int argc,char** argv) {
   sock = socket(PF_UNIX,SOCK_STREAM,0);
   if (sock < 0) pfatal("socket");
 
+  memset(&x,0,sizeof(x));
   x.sun_family=AF_UNIX;
-  strncpy(x.sun_path,argv[1],100);
+  strncpy(x.sun_path,argv[1],63);
 
   if (connect(sock,(struct sockaddr*)&x,sizeof(x)))  pfatal(argv[1]);
 
   p.magic    = QUERY_MAGIC;
   p.id       = 0x12345678;
+  p.type     = QTYPE_FINGERPRINT;
   p.src_ad   = s;
   p.dst_ad   = d;
   p.src_port = sp;

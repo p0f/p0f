@@ -24,18 +24,20 @@ $(FILE): $(FILE).c
 	@echo "WARNING: You need precompiled standard libpcap libraries (from BULL"
 	@echo "or such) to compile p0f on AIX. Bundled IBM-modified libraries will"
 	@echo "not work properly."
-	$(CC) $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c crc32.c $(LIBS)
 
 $(FILE)-static: $(FILE).c 
-	$(CC) -static $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c $(LIBS)
+	$(CC) -static $(CFLAGS) -o $@ $(FILE).c $(FILE)-query.c crc32.c $(LIBS)
 
 p0fq: test/p0fq
+
+p0fping: test/p0fping
 
 tools: $(TOOLS)
 
 clean:
 	rm -f core core.[0123456789]* *~ *.o $(FILE) a.out $(FILE)-static \
-	  test/p0fq $(TOOLS)
+	  test/p0fq test/p0fping $(TOOLS)
 
 install: $(FILE)
 	cp -f $(FILE) /usr/sbin/
