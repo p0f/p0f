@@ -77,7 +77,7 @@ void p0f_addcache(_u32 saddr,_u32 daddr,_u16 sport,_u16 dport,
                   _u8 fw,_u8 nat,_u8 real,_u16 mss,_u32 signo,
                   _s32 uptime);
 
-void p0f_handlequery(_s32 sock,struct p0f_query* q);
+void p0f_handlequery(_s32 sock,struct p0f_query* q,_u8 wild);
 
 _s16 p0f_findmasq(_u32 sad,_u8* genre,_s8 dist,_u16 mss,
                   _u8 nat,_u8 fw,_u32 signo,_s32 uptime);

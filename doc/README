@@ -6,7 +6,7 @@
                     "Dr. Jekyll had something to Hyde"
 		    
                       passive OS fingerprinting tool
-                               version 2.0.6
+                               version 2.0.7
 
      (C) Copyright 2000 - 2006 by Michal Zalewski <lcamtuf@coredump.cx>
 
@@ -263,9 +263,9 @@
   P0f is rather easy to use. There's a number of options, but you don't
   need to know most of them for normal operation:
 
-  p0f [ -f file ] [ -i device ] [ -s file ] [ -o file ] [ -Q socket ]
-      [ -w file ] [ -u user ] [ -c size ] [ -T nn ] [ -FNODVUKAXMqxtpdlRL ] 
-      [ 'filter rule' ]
+  p0f [ -f file ] [ -i device ] [ -s file ] [ -o file ] [ -Q socket [ -0 ] ]
+      [ -w file ] [ -u user ] [ -c size ] [ -T nn ] [ -e nn ] 
+      [ -FNODVUKAXMqxtpdlRL ] [ 'filter rule' ]
 
   -f file   - read fingerprints from file; by default, p0f reads signatures 
               from ./p0f.fp or /etc/p0f/p0f.fp (the latter on Unix systems 
@@ -311,6 +311,22 @@
               interface, use caution.
 
               This option is currently Unix-only.
+	      
+  -0          (In conjunction with -Q) Treat source port 0 in queries as
+              a wildcard. This is useful when p0f query is constructed
+	      from within a plugin to a program that does not provide
+	      source port information (this holds true for some mail
+	      filters, etc).
+	      
+	      Note that some ambiguity is introduced: the response might
+	      not refer to the exact connection the plugin is handling,
+	      which may (seldom) cause misidentification of NATed hosts.
+
+  -e ms     - packet capture window. On some systems (particularly on older Suns),
+              the default pcap capture window of 1 ms is insufficient, and p0f
+              may get no packets. In such a case, adjust this parameter to the
+              smallest value that results in reliable operation (note that this
+              might introduce some latency to p0f).
 
   -c size   - cache size for -Q and -M options. The default is 128, which
               is sane for a system under a moderate network load. Setting it 

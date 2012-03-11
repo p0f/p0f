@@ -1,3 +1,18 @@
+Version 2.0.7:
+--------------
+
+  Added -0 mode for port 0 wildcards in queries.
+  
+  Added -e option to make p0f work on some boxes.
+  
+  HDLC support added.
+  
+  New fingerprints, including Windows Vista betas.
+  
+  [BUG] Fixed timezone in logs after chroot().
+  
+  [BUG] Unlikely command-line overflow with VLANs fixed.
+
 Version 2.0.6:
 --------------
 

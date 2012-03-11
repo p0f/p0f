@@ -94,7 +94,7 @@ void p0f_addcache(_u32 saddr,_u32 daddr,_u16 sport,_u16 dport,
 #define SUBMOD(val,max)	((val) < 0 ? ((max) + (val)) : (val))
 
 #ifndef WIN32
-void p0f_handlequery(_s32 sock,struct p0f_query* q) {
+void p0f_handlequery(_s32 sock,struct p0f_query* q,_u8 wild) {
 
   _s32 i;
 
@@ -107,6 +107,9 @@ void p0f_handlequery(_s32 sock,struct p0f_query* q) {
     send(sock,&r,sizeof(r),MSG_NOSIGNAL);
     return;
   }
+  
+  /* Honor wildcards only when src port is 0 */
+  if (wild && q->src_port) wild = 0;
 
   for (i=1;i<QUERY_CACHE;i++) {
 
@@ -114,7 +117,8 @@ void p0f_handlequery(_s32 sock,struct p0f_query* q) {
 
     if (cur->sad == q->src_ad &&
         cur->dad == q->dst_ad &&
-        cur->ports == (q->src_port << 16) + q->dst_port) {
+	( wild ? ((cur->ports & 0xffff) == q->dst_port) :
+	(cur->ports == (q->src_port << 16) + q->dst_port))) {
         struct p0f_response* n = &cur->s;
         n->magic = QUERY_MAGIC;
         n->type  = RESP_OK;

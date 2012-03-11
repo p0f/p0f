@@ -112,6 +112,7 @@ static _u8 *config_file,
 
 static _u32 query_cache = DEFAULT_QUERY_CACHE;
 static _s32 masq_thres;
+static _s32 capture_timeout = 1;
 
 static _u8 no_extra,
            find_masq,
@@ -135,7 +136,8 @@ static _u8 no_extra,
            full_dump,
            use_fuzzy,
            use_vlan,
-           payload_dump;
+           payload_dump,
+           port0_wild;
 
 static pcap_t *pt;
 static struct bpf_program flt;
@@ -171,6 +173,10 @@ static void set_header_len(_u32 type) {
 
     case DLT_SLIP:
     case DLT_RAW:  break;
+
+#ifdef DLT_C_HDLC
+    case DLT_C_HDLC:
+#endif
 
     case DLT_NULL: header_len=4; break;
 
@@ -227,11 +233,11 @@ static void usage(_u8* name) {
           "\nUsage: %s [ -f file ] [ -i device ] [ -s file ] [ -o file ]\n"
 
 #ifndef WIN32
-          "       [ -w file ] [ -Q sock ] [ -u user ] [ -FXVONDUKASCMRqtpvdlr ]\n"
-          "       [ -c size ] [ -T nn ] [ 'filter rule' ]\n"
+          "       [ -w file ] [ -Q sock [ -0 ] ] [ -u user ] [ -FXVNDUKASCMROqtpvdlrx ]\n"
+          "       [ -c size ] [ -T nn ] [ -e nn ] [ 'filter rule' ]\n"
 #else
-		  "       [ -w file ] [ -XVNDUKASCMLRqtpdlrx ]\n"
-		  "       [ -c size]  [ -T nn ] [ 'filter rule' ]\n"
+		  "       [ -w file ] [ -FXVNDUKASCMLROqtpvdlrx ]\n"
+		  "       [ -c size]  [ -T nn ] [ -e nn ] [ 'filter rule' ]\n"
 #endif /* ^WIN32 */
 
           "  -f file   - read fingerprints from file\n"
@@ -242,7 +248,9 @@ static void usage(_u8* name) {
 #ifndef WIN32
           "  -u user   - chroot and setuid to this user\n"
           "  -Q sock   - listen on local socket for queries\n"
+          "  -0        - make src port 0 a wildcard (in query mode)\n"
 #endif /* !WIN32 */
+          "  -e ms     - pcap capture timeout in milliseconds (default: 1)\n"
           "  -c size   - cache size for -Q and -M options\n"
           "  -M        - run masquerade detection\n"
           "  -T nn     - set masquerade detection threshold (1-200)\n"
@@ -1489,14 +1497,14 @@ int main(int argc,char** argv) {
   _u8 ebuf[PCAP_ERRBUF_SIZE];
   pcap_if_t *alldevs, *d;
   _s32 adapter, i;
-  while ((r = getopt(argc, argv, "f:i:s:o:w:c:T:XONVFDxKUqvtpArRlSdCLM")) != -1)
+  while ((r = getopt(argc, argv, "f:i:s:o:w:c:T:e:XONVFDxKUqvtpArRlSdCLM")) != -1)
 #else
   _s32 lsock=0;
 
   if (getuid() != geteuid())
     fatal("This program is not intended to be setuid.\n");
   
-  while ((r = getopt(argc, argv, "f:i:s:o:Q:u:w:c:T:XOFNVDxKUqtRpvArlSdCM")) != -1) 
+  while ((r = getopt(argc, argv, "f:i:s:o:Q:u:w:c:e:T:XOFNVDxKUqtRpvArlSdCM0")) != -1) 
 #endif /* ^WIN32 */
 
     switch (r) {
@@ -1520,9 +1528,14 @@ int main(int argc,char** argv) {
       case 'T': masq_thres = atoi(optarg);
                 if (masq_thres <= 0 || masq_thres > 200) fatal("Invalid -T value.\n");
                 break;
+		
+      case 'e': capture_timeout = atoi(optarg);
+                if (capture_timeout <= 0 ||capture_timeout > 10000) fatal("Invalid -e value.\n");
+                break;
 
 #ifndef WIN32
       case 'Q': use_cache  = optarg; break;
+      case '0': port0_wild = 1;      break;
       case 'u': set_user   = optarg; break;
 #endif /* !WIN32 */
 
@@ -1577,6 +1590,8 @@ int main(int argc,char** argv) {
 
       default: usage(argv[0]);
     }
+    
+  if (!use_cache && port0_wild) fatal("-0 requires -Q (query mode).\n");
 
   if (use_logfile && !add_timestamp) add_timestamp = 1;
 
@@ -1682,7 +1697,7 @@ int main(int argc,char** argv) {
        course, the documentation sucks, and if you use the timeout
        of zero, things will break. */
     
-    if (!(pt=pcap_open_live(use_iface,PACKET_SNAPLEN,use_promisc,1,errbuf))) 
+    if (!(pt=pcap_open_live(use_iface,PACKET_SNAPLEN,use_promisc,capture_timeout,errbuf))) 
       fatal("pcap_open_live failed: %s\n",errbuf);
   }
 
@@ -1722,6 +1737,8 @@ int main(int argc,char** argv) {
     struct passwd* pw;
 
     if (geteuid()) fatal("only root can use -u.\n");
+
+    tzset();
 
     pw = getpwnam(set_user);
     if (!pw) fatal("user %s not found.\n",set_user);
@@ -1819,7 +1836,7 @@ int main(int argc,char** argv) {
 
         if (select(c+1,&f,0,&f,&tv)>0)
           if (recv(c,&q,sizeof(q),MSG_NOSIGNAL) == sizeof(q)) 
-            p0f_handlequery(c,&q);
+            p0f_handlequery(c,&q,port0_wild);
 
         shutdown(c,2); 
         close(c);

@@ -198,6 +198,8 @@ S12:64:1:44:M1400:A:Cequrux Firewall:4.x
 2048:255:0:44:M1400:A:Netgear:MR814
 16384:113:0:64:M1460,N,W0,N,N,T0,N,N,S:A:Akamai:???
 
+8190:255:0:44:M1452:A:Citrix:Netscaler 6.1
+
 # Whatever they run. EOL boys...
 S6:128:1:48:M1460,E:PA:@Slashdot:or BusinessWeek (???)
 

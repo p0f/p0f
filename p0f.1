@@ -3,7 +3,7 @@
 p0f \- identify remote systems passively
 .SH SYNOPSIS
 .B p0f
-.I p0f [ -f file ] [ -i device ] [ -s file ] [ -o file ] [ -Q socket ] [ -w file ] [ -u user ] [ -c size ] [ -T nn ] [ -FNODVUKAXMqxtpdlRL ] [ 'filter rule' ]
+.I p0f [ -f file ] [ -i device ] [ -s file ] [ -o file ] [ -Q socket [ -0 ] ] [ -w file ] [ -u user ] [ -c size ] [ -T nn ] [ -e nn ] [ -FNODVUKAXMqxtpdlRL ] [ 'filter rule' ]
 .br
 .SH "DESCRIPTION"
 .PP
@@ -79,6 +79,20 @@ NOTE: The socket will be created with permissions corresponding
 to your current umask. If you want to restrict access to this
 interface, use caution.
 .TP
+\fB-0\fR
+treat source port 0 in remote queries as a wildcard: find
+any record for that host. This is useful when developing plugins
+for programs that do not pass source port information to the
+subsystem that uses p0f queries; note that this introduces some
+ambiguity, and the returned match might be not for the 
+exact connection in question (-Q mode only).
+.TP
+\fB-e\fR ms
+packet capture window. On some systems (particularly on older Suns),
+the default pcap capture window of 1 ms is insufficient, and p0f 
+may get no packets. In such a case, adjust this parameter to the 
+smallest value that results in reliable operation (note that this
+might introduce some latency to p0f).
 \fB-c\fR size
 cache size for -Q and -M options. The default is 128, which
 is sane for a system under a moderate network load. Setting it

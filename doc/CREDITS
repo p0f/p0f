@@ -41,7 +41,10 @@ And the credits go to:
   GoTaR: masquerade timestamp patch
   Ryan Kruse: boatloads of -A fingerprints
   Stas Bekman: p0f.pid support
-
+  Mike Smith: -e option support
+  Jarno Huuskonen: timezone in chroot() fix
+  Adam Oschowski: harmless vlan bof fix
+  
   William Stearns did lots of work that made v1 successful.
   He does not have any direct contributions to v2 yet, but I hope this will
   change, until then, this is a honorary mention.

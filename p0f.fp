@@ -382,6 +382,7 @@ S3:64:1:60:M*,S,T,N,W1:.:Linux:2.5/2.6 (seldom 2.4) (1)
 S4:64:1:60:M*,S,T,N,W1:.:Linux:2.5/2.6 (seldom 2.4) (2)
 S3:64:1:60:M*,S,T,N,W2:.:Linux:2.5/2.6 (seldom 2.4) (3)
 S4:64:1:60:M*,S,T,N,W2:.:Linux:2.5/2.6 (seldom 2.4) (4)
+S4:64:0:60:M1452,S,T,N,W5:.:Linux:2.6.17 and newer
 
 S4:64:1:52:M*,N,N,S,N,W2:.:Linux:2.6.11 and newer (1)
 T4:64:1:60:M*,S,T,N,W2:.:Linux:2.6.11 and newer (2)
@@ -435,6 +436,7 @@ S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
 65535:64:1:60:M*,N,W2,N,N,T:Z:FreeBSD:5.1-current (3)
 65535:64:1:64:M*,N,N,S,N,W1,N,N,T:.:FreeBSD:5.3-5.4
 65535:64:1:64:M*,N,W1,N,N,T,S,E:P:FreeBSD:6-current
+65535:64:1:64:M*,N,W0,N,N,T,S,E:P:FreeBSD:6.0-release / 6.1-pre
 
 65535:64:1:44:M*:Z:FreeBSD:5.2 (no RFC1323)
 
@@ -449,10 +451,11 @@ S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
 65535:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6X (DF)
 32768:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6Z or 2.0 (DF)
 32768:64:1:64:M1416,N,W0,S,N,N,N,N,T0:.:NetBSD:2.0G (DF)
+32768:64:1:64:M*,N,W0,S,N,N,N,N,T0:.:NetBSD:3.0 (DF)
 
 # ----------------- OpenBSD -----------------
 
-16384:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.7
+16384:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.9
 57344:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.3-3.4
 16384:64:0:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.4 (scrub)
 65535:64:1:64:M*,N,N,S,N,W0,N,N,T:.:-OpenBSD:3.0-3.4 (Opera)
@@ -574,6 +577,13 @@ S44:128:1:48:M*,N,N,S:.:Windows:XP SP1+, 2000 SP3
 64512:128:1:48:M*,N,N,S:.:Windows:XP SP1+, 2000 SP3 (2)
 32767:128:1:48:M*,N,N,S:.:Windows:XP SP1+, 2000 SP4 (3)
 
+# Windows 2003 & Vista
+
+8192:128:1:52:M*,W8,N,N,N,S:.:Windows:Vista (beta)
+32768:32:1:52:M1460,N,W0,N,N,S:.:Windows:2003 AS
+65535:64:1:52:M1460,N,W2,N,N,S:.:Windows:2003 (1)
+65535:64:1:48:M1460,N,N,S:.:Windows:2003 (2)
+
 # Odds, ends, mods:
 
 S52:128:1:48:M1260,N,N,S:.:Windows:XP/2000 via Cisco
@@ -582,9 +592,6 @@ S52:128:1:48:M1260,N,N,S:.:Windows:XP/2000 via Cisco
 2048:255:0:40:.:.:Windows:.NET Enterprise Server
 44620:64:0:48:M*,N,N,S:.:Windows:ME no SP (?)
 S6:255:1:48:M536,N,N,S:.:Windows:95 winsock 2
-32768:32:1:52:M1460,N,W0,N,N,S:.:Windows:2003 AS
-65535:64:1:52:M1460,N,W2,N,N,S:.:Windows:2003 (1)
-65535:64:1:48:M1460,N,N,S:.:Windows:2003 (2)
 32000:128:0:48:M*,N,N,S:.:Windows:XP w/Winroute?
 16384:64:1:48:M1452,N,N,S:.:Windows:XP w/Sygate? (1)
 17256:64:1:48:M1460,N,N,S:.:Windows:XP w/Sygate? (2)
@@ -712,8 +719,9 @@ S4:64:1:60:W0,N,S,T,M1460:.:FortiNet:FortiGate 50
 
 # ------- Switches and other stuff ----------
 
-4128:255:0:44:M*:Z:Cisco:7200, Catalyst 3500, et
+4128:255:0:44:M*:Z:Cisco:7200, Catalyst 3500, etc
 S8:255:0:44:M*:.:Cisco:12008
+S4:255:0:44:M536:Z:Cisco:IOS 11.0
 60352:128:1:64:M1460,N,W2,N,N,T,N,N,S:.:Alteon:ACEswitch
 64512:128:1:44:M1370:.:Nortel:Contivity Client
 
@@ -813,10 +821,12 @@ S23:64:1:64:N,W1,N,N,T,N,N,S,M1380:.:@Mysterious:GPRS gateway (?)
 # Generic signatures - just in case #
 #####################################
 
-*:128:1:52:M*,N,W0,N,N,S:.:@Windows:XP/2000 (RFC1323 no tstamp)
-*:128:1:52:M*,N,W*,N,N,S:.:@Windows:XP/2000 (RFC1323, w+, no tstamp)
-*:128:1:64:M*,N,W0,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323)
-*:128:1:64:M*,N,W*,N,N,T0,N,N,S:.:@Windows:XP (RFC1323, w+)
+*:128:1:52:M*,N,W0,N,N,S:.:@Windows:XP/2000 (RFC1323, w, tstamp-)
+*:128:1:52:M*,N,W*,N,N,S:.:@Windows:XP/2000 (RFC1323, w+, tstamp-)
+*:128:1:52:M*,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323, w-, tstamp)
+*:128:1:64:M*,N,W0,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323, w, tstamp)
+*:128:1:64:M*,N,W*,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323, w+, tstamp)
+
 *:128:1:48:M536,N,N,S:.:@Windows:98
 *:128:1:48:M*,N,N,S:.:@Windows:XP/2000
 
