@@ -92,6 +92,7 @@ int main(int argc, char** argv) {
   static struct sockaddr_un sun;
 
   s32  sock;
+  time_t ut;
 
   if (argc != 3) {
     ERRORF("Usage: p0f-client /path/to/socket host_ip\n");
@@ -145,12 +146,14 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  t = localtime((time_t*)&r.first_seen);
+  ut = r.first_seen;
+  t = localtime(&ut);
   strftime((char*)tmp, 128, "%Y/%m/%d %H:%M:%S", t);
 
   SAYF("First seen    = %s\n", tmp);
 
-  t = localtime((time_t*)&r.last_seen);
+  ut = r.last_seen;
+  t = localtime(&ut);
   strftime((char*)tmp, 128, "%Y/%m/%d %H:%M:%S", t);
 
   SAYF("Last update   = %s\n", tmp);
@@ -187,13 +190,15 @@ int main(int argc, char** argv) {
     SAYF("Distance      = %u\n", r.distance);
 
   if (r.last_nat) {
-    t = localtime((time_t*)&r.last_nat);
+    ut = r.last_nat;
+    t = localtime(&ut);
     strftime((char*)tmp, 128, "%Y/%m/%d %H:%M:%S", t);
     SAYF("IP sharing    = %s\n", tmp);
   }
 
   if (r.last_chg) {
-    t = localtime((time_t*)&r.last_chg);
+    ut = r.last_chg;
+    t = localtime(&ut);
     strftime((char*)tmp, 128, "%Y/%m/%d %H:%M:%S", t);
     SAYF("Sys change    = %s\n", tmp);
   }

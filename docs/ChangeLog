@@ -1,3 +1,10 @@
+Version 3.03b:
+--------------
+
+Bug fixes:
+
+  - Potential NULL ptr in p0f-client on some 64-bit systems.
+
 Version 3.02b:
 --------------
 
