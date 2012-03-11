@@ -1,0 +1,67 @@
+1.8.3 (Feb 6, 2003)
+	- Lots of new signatures
+	- URL's for papers and sites with information on fingerprinting.
+	- Information on the windows/Cygwin port.  .exe for 1.8.3 will
+	  show up soon.
+
+
+1.8.2.2 (May 13, 2002)
+	- Rechecked version numbers. (Bill)
+	- Mysql cleanup and integration
+	- Mysql quickstart (Marion)
+
+
+1.8.2.1 (May 12, 2002)
+	- Mysql Support Added (Evrim ULU <evrim@core.gen.tr>)
+	- FPS Buffer Length increased from 120 to 150 (Evrim)
+	- p0f-mysql.conf config file added for mysql connectivity (Evrim)
+	- parser for p0f.fp was corrected. It was including 
+	  wwww:ttt: ... line in the comments. (Evrim)
+	- mysql/db.sql file is included for creation of db tables (Evrim)
+	- Makefile.mysql is added - no gnu autoconf support yet. (Evrim)
+	- New RedHat 7.0 Beta Fischer FP added. (Evrim)
+	- Max fingerprints raised to 5000 for the moresigs project. (Bill)
+
+1.8.2 (Feb 04, 2002)
+	- Addition of CREDITS, ChangeLog
+	- p0frep log parsing tool by Michal
+	- Documentation updates and reformatting
+	- "-q" quiet option; doesn't print banners. (Michal)
+	- freopen fix for compile errors in "write output to file"
+	  choice, typo fixes (Trevor Johnson)
+	- New fingerprints
+	- New fingerprint lengths
+	- Support BPF capture with cooked sockets (DLT_LINUX_SLL,
+	  captured with "-i any") (Bill)
+	- init script forces libpcap to only send up tcp packets with a
+	  syn set (Bill)
+	- Solaris/non-gnu $< and mkdir --parents fixes (TAHARA Yuusuke)
+	- Use printf() instead of puts() (Bill, spotted by
+	  piggy@xs4all.nl)
+	- First availability of additional unverified signatures (see
+	  http://www.stearns.org/p0f/moresigs/ , Bill)
+	- Include note about logcheck support (John Sage
+	  <jsage@finchhaven.com>)
+
+1.8.1 was never publicly released; test4 most recent development version
+
+1.8 (Jan 21, 2002)
+	- changed license from GPL to LGPL (Michal)
+	- Added SysV init script
+	- Build RPMs as part of the build process.
+	- Addition of man page
+	- Addition of William Stearns as maintainer
+	- New fingerprints
+	- Documentation updates and reformatting (Trevor Johnson)
+	- New home site: http://www.stearns.org/p0f/
+	- Use packet length as additional signature field for more
+	  accurate detection. (Michal)
+	- Datalink detection fix
+	- Print timestamp in verbose mode (Stephen White)
+	- output file, filter unknown, filter known, and timestamp
+	  options (Michal)
+	- fp file cleanups (Bill)
+	- header length fix (Erkin Acar)
+
+1.7
+	- Michal's release

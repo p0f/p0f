@@ -1,0 +1,24 @@
+- Michal Zalewski (main code, p0frep)
+- William Stearns (man page, rpms, miscellaneous fixes, init script, moresigs)
+- Trevor Johnson (documentation fixes, patches, freopen)
+- Jim McKim <mckim@bandersnatch.grc.nasa.gov> (compile fix for Solaris)
+- TAHARA Yuusuke <tahara@devilish.org>  (additional solaris compile fixes)
+- piggy (cosmetic error spotting)
+- John Sage (logcheck support note)
+- Evrim ULU <evrim@core.gen.tr>, Aycan IRICAN <aycan@core.gen.tr> (mysql support, new sig)
+- Marion Bates <Marion.Bates@Dartmouth.EDU> (mysql quickstart documentation)
+- Chris Connelly <chris@connelly.net> (Windows/cygwin port and documentation)
+- Michael Davis <mike@datanerds.net> (Original windows port)
+
+
+New Fingerprints
+- Vincent Renardias <vincent@strongholdnet.com>
+- Marion Bates <Marion.Bates@Dartmouth.EDU>
+- Haas Wernfried <w.haas@xover.htu.tuwien.ac.at>
+- Carsten Klapp <carstenklapp@yahoo.ca>
+- mike@honeynet.org
+
+
+Many apologies if I've failed to acknowledge you here - please write and
+I'll fix that.
+

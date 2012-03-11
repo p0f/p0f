@@ -1,0 +1,81 @@
+#!/bin/bash
+# p0f		This shell script takes care of starting and stopping
+#		the p0f monitoring program
+#
+# chkconfig: 2345 52 48
+# description: p0f - the p0f monitoring program. \
+# p0f performs passive OS fingerprinting technique bases on information coming \
+# from remote host when it establishes connection to our system. Captured \
+# packets contains enough information to determine OS - and, unlike \
+# active scanners (nmap, queSO) - without sending anything to this host.
+# processname: p0f
+# pidfile: /var/run/p0f.pid
+
+PATH=/usr/bin:/sbin:/bin:/usr/sbin
+export PATH
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+case "$1" in
+start)
+	echo -n "Starting p0f: "
+	#The 'tcp and tcp[13] & 2 = 2' requires at least syn set.
+	#An alternative would be 'tcp and tcp[13] & 0x3f = 2', which
+	#is syn and no other major flags (but ECN enabled packets are OK)
+	if [ -z "$BpfFilter" ]; then
+		BpfFilter='tcp and tcp[13] & 2 = 2'
+	else
+		BpfFilter="$BpfFilter and tcp and tcp[13] & 2 = 2"
+	fi
+
+	#The command in backticks returns all the local IP addresses on this machine.
+	for OneIP in `/sbin/ifconfig 2>/dev/null | grep 'inet addr' | sed -e 's/.*addr://' -e 's/ .*//'` ; do
+		BpfFilter="$BpfFilter and not src host $OneIP"
+	done
+	rm -f /var/run/p0f.pid
+	#Start up p0f and filter out all packets originating from any of this machines IP's.
+	if [ -e /etc/p0f-mysql.conf ]; then
+		MysqlParam="-m /etc/p0f-mysql.conf"
+	else
+		MysqlParam=''
+	fi
+	nohup /usr/sbin/p0f $MysqlParam -v "$BpfFilter" >>/var/log/p0f 2>&1 &
+	echo $! >/var/run/p0f.pid
+	touch /var/lock/subsys/p0f
+	echo "done"
+	;;
+
+stop)
+	if [ -f /var/run/p0f.pid ]; then
+		echo -n "Stopping p0f: "
+		kill -TERM `cat /var/run/p0f.pid`
+		rm -f /var/run/p0f.pid
+		rm -f /var/lock/subsys/p0f
+		echo "done"
+	fi
+	;;
+
+restart)
+	$0 stop
+	$0 start
+	exit $?
+	;;
+
+status)
+	status p0f
+	exit $?
+	;;
+
+probe)
+	exit 0
+	;;
+
+*)
+	echo "Usage: $0 {start|stop|status|restart}"
+	exit 1
+	;;
+
+esac
+
+exit 0

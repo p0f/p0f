@@ -1,0 +1,70 @@
+.TH P0F 1 
+.\" NAME should be all caps, SECTION should be 1-8, maybe w/ subsection
+.\" other parms are allowed: see man(7), man(1)
+.SH NAME
+p0f \- identify remote systems passively
+.SH SYNOPSIS
+.B p0f
+.I "[ -f file ] [ -i device ] [ -o file ] [ -s file ] [ -vKUtq ] [ 'filter rule' ]"
+.br
+.SH "DESCRIPTION"
+This manual page briefly documents the
+.BR p0f 
+command.
+.PP
+.B p0f
+uses a fingerprinting technique based on information coming
+from remote host when it tries to establish a connection to your system.
+Captured packet parameters contain enough information to determine
+remote OS - and, unlike active scanners (nmap, queSO) - this is done
+without sending anything to this host.
+.PP
+In short, there are certain TCP/IP flag settings specific for given systems.
+Usually initial TTL (8 bits), window size (16 bits), maximum segment size
+(16 bits), don't fragment flag (1 bit), sackOK option (1 bit), nop option
+(1 bit), window scaling option (8 bits), initial packet size (16 bits)
+vary from one TCP stack implementation to another, and, combined together,
+give unique, 67-bit signature for every system.
+.SH OPTIONS
+.TP
+\fB\-f\fR file
+read fingerprint information from file
+.TP
+\fB\-i\fR device
+read packets from device
+.TP
+\fB\-s\fR file
+read packets from file
+.TP
+\fB\-o\fR file
+write output to file (best with -vt)
+.TP
+\fB\-v\fR
+verbose mode
+.TP
+\fB\-U\fR
+do not display unknown signatures
+.TP
+\fB\-K\fR
+do not display known signatures
+.TP
+\fB\-t\fR
+add timestamps
+.TP
+\fB\-q\fR
+quiet mode - do not display banners
+.TP
+\fB\-m file\fR
+send output to mysql server in 'file'
+.TP
+\fb\-g file\fR
+insert fprints from 'file' into sql (must be used with -m)
+.SH FILES
+.TP
+.BI /etc/p0f.fp
+default Operating System fingerprint file
+.SH AUTHOR
+.B p0f
+was written by Michal Zalewski <lcamtuf@coredump.cx>.  This man page was 
+written by William Stearns <wstearns@pobox.com>
+
