@@ -83,7 +83,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories="..\,..\WIN32-Code,..\..\Wpdpack\include"
+				AdditionalIncludeDirectories=""
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				StringPooling="TRUE"
 				RuntimeLibrary="4"
@@ -100,7 +100,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib ..\..\WPdpack\Lib\wpcap.lib Advapi32.lib"
+				AdditionalDependencies="ws2_32.lib Advapi32.lib"
 				OutputFile=".\Release/p0f.NET.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"

@@ -6,10 +6,10 @@
   "If you sit down at a poker game and don't see a sucker, 
   get up. You're the sucker."
 
-  (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
+  (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 
-  WIN32 port (C) Copyright 2003 by Michael A. Davis <mike@datanerds.net>
-             (C) Copyright 2003 by Kirby Kuehl <kkuehl@cisco.com>
+  WIN32 port (C) Copyright 2003-2004 by Michael A. Davis <mike@datanerds.net>
+             (C) Copyright 2003-2004 by Kirby Kuehl <kkuehl@cisco.com>
 
 */
 
@@ -29,6 +29,7 @@
 #else
 #  include "getopt.h"
 #  include <stdarg.h>
+#  pragma comment (lib, "wpcap.lib")
 #endif /* ^WIN32 */
 
 #include <stdio.h>
@@ -161,9 +162,10 @@ static void set_header_len(_u32 type) {
 
   switch(type) {
 
-    case DLT_NULL:
     case DLT_SLIP:
     case DLT_RAW:  break;
+
+    case DLT_NULL: header_len=4; break;
 
     case DLT_EN10MB: header_len=14; break;
 
@@ -186,6 +188,10 @@ static void set_header_len(_u32 type) {
     case DLT_IEEE802:
       header_len=22;
       break;
+
+#ifdef DLT_IEEE802_11
+    case DLT_IEEE802_11: header_len=32; break;
+#endif
 
 #ifdef DLT_PFLOG
     case DLT_PFLOG:
@@ -734,12 +740,44 @@ static _u8* lookup_tos(_u8 t) {
 }
 
 
-static void put_date(void) {
+static void put_date(struct timeval tval) {
   _u8* x;
-  _u32 i=time(0);
-  x=ctime((void*)&i);
-  if (x[strlen(x)-1]=='\n') x[strlen(x)-1]=0;
-  printf("<%s> ",x);
+  struct tm *tmval;
+
+  switch (add_timestamp) {
+
+    case 1: /* localtime */
+
+    case 2: /* UTC */
+
+      x = asctime((add_timestamp == 1) ? localtime(&tval.tv_sec) : 
+                                         gmtime(&tval.tv_sec));
+
+      if (x[strlen(x)-1]=='\n') x[strlen(x)-1]=0;
+
+      printf("<%s> ",x);
+
+      break;
+
+    case 3: /* seconds since the epoch */
+
+      printf("<%u.%06u> ", (_u32)tval.tv_sec, (_u32)tval.tv_usec);
+      break;
+
+    case 4: /* RFC3339 */
+    default:
+
+      tmval = gmtime(&tval.tv_sec);
+
+      printf("<%04u-%02u-%02uT%02u:%02u:%02u.%06uZ> ",
+             tmval->tm_year + 1900, tmval->tm_mon + 1, tmval->tm_mday,
+             tmval->tm_hour, tmval->tm_min, tmval->tm_sec, 
+             (_u32)tval.tv_usec);
+
+      break;
+
+  }
+
 }
 
 
@@ -877,7 +915,7 @@ static void dump_payload(_u8* data,_u16 dlen) {
 static inline void find_match(_u16 tot,_u8 df,_u8 ttl,_u16 wss,_u32 src,
                        _u32 dst,_u16 sp,_u16 dp,_u8 ocnt,_u8* op,_u16 mss,
                        _u8 wsc,_u32 tstamp,_u8 tos,_u32 quirks,_u8 ecn,
-                       _u8* pkt,_u8 plen,_u8* pay) {
+                       _u8* pkt,_u8 plen,_u8* pay, struct timeval pts) {
 
   _u32 j;
   _u8* a;
@@ -976,7 +1014,7 @@ continue_fuzzy:
 
     if (!no_known) {
 
-      if (add_timestamp) put_date();
+      if (add_timestamp) put_date(pts);
       a=(_u8*)&src;
 
       printf("%d.%d.%d.%d%s:%d - %s ",a[0],a[1],a[2],a[3],grab_name(a),
@@ -1043,7 +1081,7 @@ continue_fuzzy:
      if (sc > masq_thres) {
        printf(">> Masquerade at %u.%u.%u.%u%s: indicators at %d%%.",
               a[0],a[1],a[2],a[3],grab_name(a),sc);
-       if (!mode_oneline) putchar('\n');
+       if (!mode_oneline) putchar('\n'); else printf(" -- ");
        if (masq_flags) {
          printf("   Flags: ");
          p0f_descmasq();
@@ -1084,7 +1122,7 @@ continue_search:
   }
 
   if (!no_unknown) { 
-    if (add_timestamp) put_date();
+    if (add_timestamp) put_date(pts);
     a=(_u8*)&src;
     printf("%d.%d.%d.%d%s:%d - UNKNOWN [",a[0],a[1],a[2],a[3],grab_name(a),sp);
 
@@ -1175,6 +1213,7 @@ continue_search:
 static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
   struct ip_header *iph;
   struct tcp_header *tcph;
+  struct timeval pts;
   _u8*   end_ptr;
   _u8*   opt_ptr;
   _u8*   pay = 0;
@@ -1211,6 +1250,7 @@ static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
   if (end_ptr > opt_ptr) end_ptr = opt_ptr;
 
   ilen = iph->ihl & 15;
+  pts = pph->ts;
 
   /* Borken packet */
   if (ilen < 5) return;
@@ -1392,7 +1432,8 @@ end_parsing:
      /* ECN */   tcph->flags & (TH_ECE|TH_CWR),
      /* pkt */   (_u8*)iph,
      /* len */   end_ptr - (_u8*)iph,
-     /* pay */   pay
+     /* pay */   pay,
+     /* ts */    pts
   );
 
 #ifdef DEBUG_EXTRAS
@@ -1416,7 +1457,7 @@ int main(int argc,char** argv) {
   _u8 ebuf[PCAP_ERRBUF_SIZE];
   pcap_if_t *alldevs, *d;
   _s32 adapter, i;
-  while ((r = tgetopt(argc, argv, "f:i:s:o:w:c:T:XNVFDxKUqtpArRlSdCLM")) != -1)
+  while ((r = getopt(argc, argv, "f:i:s:o:w:c:T:XNVFDxKUqtpArRlSdCLM")) != -1)
 #else
   _s32 lsock=0;
 
@@ -1440,7 +1481,6 @@ int main(int argc,char** argv) {
 
       case 'o': if (!freopen(optarg,"a",stdout)) pfatal(optarg);
                 use_logfile = 1;
-                add_timestamp = 1;
                 break;
 
       case 'V': masq_flags = 1;      break;
@@ -1462,7 +1502,7 @@ int main(int argc,char** argv) {
       case 'K': no_known      = 1; break;
       case 'q': no_banner     = 1; break;
       case 'p': use_promisc   = 1; break;
-      case 't': add_timestamp = 1; break;
+      case 't': add_timestamp++;   break;
       case 'd': go_daemon     = 1; break;
       case 'l': mode_oneline  = 1; break;
       case 'C': check_collide = 1; break;
@@ -1500,6 +1540,8 @@ int main(int argc,char** argv) {
 
       default: usage(argv[0]);
     }
+
+  if (use_logfile && !add_timestamp) add_timestamp = 1;
 
   if (use_iface && use_dump)
     fatal("-s and -i are mutually exclusive.\n");
@@ -1657,6 +1699,7 @@ int main(int argc,char** argv) {
 
 #ifndef WIN32
     _s32 f;
+    struct timeval tv;
     fflush(0);
     f = fork();
     if (f<0) pfatal("fork() failed");
@@ -1667,7 +1710,8 @@ int main(int argc,char** argv) {
     setsid();
     signal(SIGHUP,SIG_IGN);
     printf("--- p0f " VER " resuming operations at ");
-    put_date();
+    gettimeofday(&tv, (struct timezone*)0);
+    put_date(tv);
     printf("---\n");
     fflush(0);
 #else

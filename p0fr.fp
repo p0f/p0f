@@ -10,7 +10,7 @@
 # | to this file. This database is looking for a caring maintainer.         |
 # `-------------------------------------------------------------------------'
 #
-# (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 # Submit all additions to the authors. Read p0f.fp before adding any
 # signatures. Run p0f -R -C after making any modifications. This file is
@@ -111,6 +111,7 @@
 0:255:0:40:.:K0A:Linux:2.0/2.2 (refused)
 0:64:1:40:.:K0A:FreeBSD:4.8 (refused)
 0:64:1:40:.:K0ZA:Linux:recent 2.4 (refused)
+
 0:128:0:40:.:K0A:Windows:XP/2000 (refused)
 0:128:0:40:.:K0UA:-Windows:XP/2000 while browsing (refused)
 
@@ -136,7 +137,7 @@
 *:255:0:40:.:QA:Cisco:LocalDirector (dropped 2)
 
 0:64:1:40:.:A:Hasbani:WindWeb (dropped 2)
-S23:241:1:40:.:.:Solaris:2.5 (dropped)
+S23:255:1:40:.:.:Solaris:2.5 (dropped)
 
 #######################################################
 # Connection dropped / timeout - RST with description #

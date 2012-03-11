@@ -11,7 +11,7 @@
 # | add new signatures.                                                     |
 # `-------------------------------------------------------------------------'
 #
-# (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 # Each line in this file specifies a single fingerprint. Please read the
 # information below carefully before attempting to append any signatures
@@ -363,6 +363,7 @@
 
 # ----------------- Linux -------------------
 
+S1:64:0:44:M*:A:Linux:1.2.x
 512:64:0:44:M*:.:Linux:2.0.3x (1)
 16384:64:0:44:M*:.:Linux:2.0.3x (2)
 
@@ -415,21 +416,23 @@ S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
 
 # ----------------- FreeBSD -----------------
 
-16384:64:1:44:M*:.:FreeBSD:2.0-4.1
+16384:64:1:44:M*:.:FreeBSD:2.0-4.2
 16384:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.4 (1)
 
 1024:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.4 (2)
 
 57344:64:1:44:M*:.:FreeBSD:4.6-4.8 (no RFC1323)
-57344:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.6-4.8
+57344:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.6-4.9
 
 32768:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.8-5.1 (or MacOS X 10.2-10.3)
-65535:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.7-5.1 (or MacOS X 10.2-10.3) (1)
-65535:64:1:60:M*,N,W1,N,N,T:.:FreeBSD:4.7-5.1 (or MacOS X 10.2-10.3) (2)
+65535:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.7-5.2 (or MacOS X 10.2-10.3) (1)
+65535:64:1:60:M*,N,W1,N,N,T:.:FreeBSD:4.7-5.2 (or MacOS X 10.2-10.3) (2)
 
 65535:64:1:60:M*,N,W0,N,N,T:Z:FreeBSD:5.1-current (1)
 65535:64:1:60:M*,N,W1,N,N,T:Z:FreeBSD:5.1-current (2)
 65535:64:1:60:M*,N,W2,N,N,T:Z:FreeBSD:5.1-current (3)
+
+65535:64:1:44:M*:Z:FreeBSD:5.2 (no RFC1323)
 
 # 16384:64:1:60:M*,N,N,N,N,N,N,T:.:FreeBSD:4.4 (w/o timestamps)
 
@@ -440,6 +443,7 @@ S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
 16384:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6
 65535:64:1:60:M*,N,W1,N,N,T0:.:NetBSD:1.6W-current (DF)
 65535:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6X (DF)
+32768:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6Z (DF)
 
 # ----------------- OpenBSD -----------------
 
@@ -465,6 +469,7 @@ S44:255:1:44:M*:.:Solaris:7
 4096:64:0:44:M1460:.:SunOS:4.1.x
 
 S34:64:1:52:M*,N,W0,N,N,S:.:Solaris:10 (beta)
+32850:64:1:64:M*,N,N,T,N,W1,N,N,S:.:Solaris:10 1203
 
 # ----------------- IRIX --------------------
 
@@ -475,6 +480,8 @@ S34:64:1:52:M*,N,W0,N,N,S:.:Solaris:10 (beta)
 
 61440:60:0:48:M*,N,N,S:.:IRIX:6.5.12-6.5.21 (1)
 49152:60:0:48:M*,N,N,S:.:IRIX:6.5.12-6.5.21 (2)
+
+49152:60:0:64:M*,N,W2,N,N,T,N,N,S:.:IRIX:6.5 IP27
 
 # ----------------- Tru64 -------------------
 # Tru64 and OpenVMS share the same stack on occassions.
@@ -565,6 +572,9 @@ S52:128:1:48:M1260,N,N,S:.:Windows:XP/2000 via Cisco
 65520:128:1:48:M*,N,N,S:.:Windows:XP bare-bone
 16384:128:1:52:M536,N,W0,N,N,S:.:Windows:2000 w/ZoneAlarm?
 2048:255:0:40:.:.:Windows:.NET Enterprise Server
+44620:64:0:48:M*,N,N,S:.:Windows:ME no SP (?)
+S6:255:1:48:M536,N,N,S:.:Windows:95 winsock 2
+32768:32:1:52:M1460,N,W0,N,N,S:.:Windows:2003 AS
 
 # No need to be more specific, it passes:
 *:128:1:48:M*,N,N,S:U:-Windows:XP/2000 while downloading (leak!)
@@ -593,7 +603,8 @@ S52:128:1:48:M1260,N,N,S:.:Windows:XP/2000 via Cisco
 
 # ---------------- NeXTSTEP -----------------
 
-S8:64:0:44:M512:.:NeXTSTEP:3.3
+S8:64:0:44:M512:.:NeXTSTEP:3.3 (1)
+S4:64:0:44:M1024:.:NeXTSTEP:3.3 (2)
 
 # ------------------ BeOS -------------------
 
@@ -628,6 +639,7 @@ S16:64:0:44:M512:.:QNX:demodisk
 # -------------- SCO UnixWare ---------------
 
 S3:64:1:60:M1460,N,W0,N,N,T:.:SCO:UnixWare 7.1
+S17:64:1:60:M1380,N,W0,N,N,T:.:SCO:UnixWare 7.1.3 MP3
 S23:64:1:44:M1380:.:SCO:OpenServer 5.0
 
 # ------------------- DOS -------------------
@@ -637,6 +649,7 @@ S23:64:1:44:M1380:.:SCO:OpenServer 5.0
 # ------------------ OS/2 -------------------
 
 S56:64:0:44:M512:.:OS/2:4
+28672:64:0:44:M1460:.:OS/2:Warp 4.0
 
 # ----------------- TOPS-20 -----------------
 
@@ -659,6 +672,10 @@ S32:64:1:56:M*,N,N,S,N,N,?12:.:AMIGA:3.9 BB2 with Miami stack
 # ----------------- AMIGAOS -----------------
 
 16384:64:1:48:M1560,N,N,S:.:AMIGAOS:3.9 BB2 MiamiDX
+
+# ----------------- FreeMiNT ----------------
+
+S44:255:0:44:M536:.:FreeMiNT:1 patch 16A (Atari)
 
 ###########################################
 # Appliance / embedded / other signatures #
@@ -706,6 +723,8 @@ S1:255:1:60:M1460,S,T,N,W0:.:LookSmart:ZyBorg
 
 16384:255:0:40:.:.:Proxyblocker:(what's this?)
 
+65535:255:0:48:M*,N,N,S:.:Redline: T|X 2200
+
 # ----------- Embedded systems --------------
 
 S9:255:0:44:M536:.:PalmOS:Tungsten C
@@ -713,10 +732,13 @@ S5:255:0:44:M536:.:PalmOS:3/4
 S4:255:0:44:M536:.:PalmOS:3.5
 2948:255:0:44:M536:.:PalmOS:3.5.3 (Handera)
 S29:255:0:44:M536:.:PalmOS:5.0
+16384:255:0:44:M1398:.:PalmOS:5.2 (Clie)
 
 S23:64:1:64:N,W1,N,N,T,N,N,S,M1460:.:SymbianOS:7
-8192:255:0:44:M1460:.:SymbianOS:6048 (on Nokia 7650?)
-8192:255:0:44:M536:.:SymbianOS:(on Nokia 9210?)
+8192:255:0:44:M1460:.:SymbianOS:6048 (Nokia 7650?)
+8192:255:0:44:M536:.:SymbianOS:(Nokia 9210?)
+S22:64:1:56:M1460,T,S:.:SymbianOS:? (SE P800?)
+S36:64:1:56:M1360,T,S:.:SymbianOS:60xx (Nokia 6600?)
 
 32768:32:1:44:M1460:.:Windows:CE 3
 
@@ -732,6 +754,8 @@ T5:64:0:44:M536:.:Sega:Dreamcast HKT-3020 (browser disc 51027)
 S22:64:1:44:M1460:.:Sony:Playstation 2 (SOCOM?)
 
 S12:64:0:44:M1452:.:AXIS:Printer Server 5600 v5.64
+
+3100:32:1:44:M1460:.:Windows:CE 2.0
 
 ####################
 # Fancy signatures #

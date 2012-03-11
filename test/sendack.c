@@ -18,7 +18,7 @@
    Linux code, may not work on systems that use different mechanism to
    access raw sockets.
 
-   Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+   Copyright (C) 2003-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 
  */
 

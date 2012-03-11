@@ -6,7 +6,7 @@
    This is an interface to be used on the local socket created with
    -Q. 
 
-   Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+   Copyright (C) 2003-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 
 */
 

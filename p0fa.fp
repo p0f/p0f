@@ -11,7 +11,7 @@
 # | caring maintainer.                                                      |
 # `-------------------------------------------------------------------------'
 #
-# (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 # Plenty of signatures contributed in bulk by rain forest puppy, Paul Woo and
 # Michael Bauer.

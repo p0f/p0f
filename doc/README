@@ -6,12 +6,15 @@
                     "Dr. Jekyll had something to Hyde"
 		    
                       passive OS fingerprinting tool
-                              version 2.0.3
+                              version 2.0.4
 
-     (C) Copyright 2000 - 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+     (C) Copyright 2000 - 2004 by Michal Zalewski <lcamtuf@coredump.cx>
 
-   Win32 port (C) Copyright 2003 by Michael A. Davis <mike@datanerds.net>
-                      and Kirby Kuehl <kkuehl@cisco.com>
+                Various ports (C) Copyright 2003 - 2004 by:
+
+                   Michael A. Davis <mike@datanerds.net>
+                      Kirby Kuehl <kkuehl@cisco.com>
+                     Kevin Currie <kcurrie@cisco.com>
 
       Portions contributed by numerous good people - see CREDITS file.
 
@@ -36,6 +39,7 @@
    3) What's new then?
    4) Command-line
    5) Active service integration
+   6) SQL database integration
    6) Masquerade detection
    7) Fingerprinting accuracy and precision
    8) Adding signatures
@@ -46,29 +50,32 @@
   13) Appendix A: Exact output format
   14) Appendix B: Links to OS fingerprinting resources
 
-
 -----------------------
 1. What's this, anyway?
 -----------------------
 
   The passive OS fingerprinting technique is based on analyzing the
   information sent by a remote host while performing usual communication
-  tasks - such as a remote party visiting your webpage, connecting to your 
-  MTA, or you connecting to a remote host with a browser or by other
-  standard means. In contrast to active fingerprinting with tools such
-  as nmap or queso, The process of passive fingerprinting does not generate
-  any additional or unusual traffic, and thus cannot be detected.
+  tasks - such as whenever a remote party visits your webpage, connecs to 
+  your MTA - or whenever you connect to a remote system while browsing the
+  web or performing other routine tasks. In contrast to active 
+  fingerprinting (with tools such as NMAP or Queso), the process of passive 
+  fingerprinting does not generate any additional or unusual traffic,
+  and thus cannot be detected.
 
   Captured packets contain enough information to identify the remote OS,
-  thanks to subtle differences between TCP/IP stacks, sometimes certain
-  implementation flaws. Some additional metrics can be used to gather
-  information about the configuration of a remote system or even its
-  ISP and network setup.
+  thanks to subtle differences between TCP/IP stacks, and sometimes certain
+  implementation flaws that, although harmless, make certain systems quite
+  unique. Some additional metrics can be used to gather information about 
+  the configuration of a remote system or even its ISP and network setup.
 
-  The name might be slightly misleading - the technique is passive, but
-  it can be used for active testing. It is just that you are not required
-  to cause any undesirable traffic, and can rely on pretty much anything
-  you've got. P0f actually provides you with three different detection
+  The name of the fingerprinting technique might be somewhat misleading - 
+  although the act of discovery is indeed passive, p0f can be used for
+  active testing. It is just that you are not required to send any unusual
+  or undesirable traffic, and can rely what you would be getting from
+  the remote party anyway. 
+
+  To accomplish the job, p0f equips you with three different detection
   modes:
 
     - Incoming connection fingerprinting (SYN mode, default) - whenever
@@ -80,18 +87,20 @@
     - Outgoing connection refused (remote party) fingerprinting (RST+ mode) 
       - to fingerprint systems that reject your traffic.
 
-  P0f was the first fully-fledged implementation of the passive 
-  fingerprinting technique. The current version uses a number of
-  detailed metrics, often invented specifically for p0f, and achieves
-  a very high level of accuracy and detail, is designed for hands-free
-  operation over an extended period of time, and has a number of features
-  to make it easy to integrate it with other solutions.
+  P0f was the first (and I believe remains the best) fully-fledged 
+  implementation of the passive fingerprinting technique. The current version 
+  uses a number of detailed metrics, often invented specifically for p0f, 
+  and achieves a very high level of accuracy and detail, is designed for 
+  hands-free operation over an extended period of time, and has a number 
+  of features to make it easy to integrate it with other solutions.
 
   Portions of this code are used in several IDS systems, some sniffer  
   software; p0f is also shipped with several operating systems and 
   incorporated into an interesting OpenBSD pf hack by Mike Frantzen, that 
-  allows you to filter out or redirect traffic based on the source OS. In 
-  short, p0f is a rather well-established software at this point.
+  allows you to filter out or redirect traffic based on the source OS. 
+  There is also a beta patch for Linux netfilter, courtesy of Evgeniy 
+  Polyakov. In short, p0f is a rather well-established software at this 
+  point. 
 
 ------------------------------
 2. Why would I want to use it?
@@ -105,7 +114,7 @@
       and distance information suitable for determining remote network
       topology.
 
-    - Active response / policy enforcement - integrated with your services
+    - Active response / policy enforcement - integrated with your server
       or firewall, p0f can be used to handle specific OSes in the most
       suitable manner and serve most appropriate content; you may also enforce 
       a specific corporate OS policy, restrict SMTP connections to a set of 
@@ -138,10 +147,10 @@
 3. What's new then?
 -------------------
 
-  The original version of p0f was written somewhere in 2000 by Michal Zalewski
-  and later taken over William Stearns (circa 2001). The original author
-  still contributes to the code from time to time, and the version you're
-  holding right now is the original author's fault - although I'd like 
+  The original version of p0f was written somewhere in 2000 by Michal 
+  Zalewski (that be me), and later taken over William Stearns (circa 2001). 
+  The original author still contributes to the code from time to time, and 
+  the version you're holding right now is his sole fault - although I'd like 
   William to take over further maintenance, if he's interested.
 
   Version 2 is a complete rewrite of the original v1 code. The main reason 
@@ -167,8 +176,11 @@
     - Zero SEQ number [*],
     - Non-empty IP options.
 
-    [*] Metrics "invented" for p0f, as far as I know. Other metrics
-    were discussed before, although usually not implemented anywhere.
+    [*] denotes metrics "invented" for p0f, as far as I am concerned. Other 
+    metrics were discussed by certain researchers before, although usually 
+    not implemented anywhere. A detailed discussion of all checks performed
+    by p0f can be found in the introductory comments in p0f.fp, p0fa.fp
+    and p0fr.fp.
 
     As a matter of fact, some of the metrics were so precise I managed
     to find several previously unknown TCP/IP stack bugs :-) See
@@ -176,9 +188,9 @@
 
   IMPROVEMENTS:
 
-    - Major performance improvements - no more runtime signature parsing,
-      added BPF pre-filtering, signature hash lookups - to make p0f suitable 
-      for high-throughput devices,
+    - Major performance boost - no more runtime signature parsing, added 
+      BPF pre-filtering, signature hash lookups - to make p0f suitable for 
+      running on high-throughput devices,
 
     - Advanced masquerade detection for policy enforcement (ISPs,
       corporate networks),
@@ -254,10 +266,10 @@
               data capture file, instead of a live network. Useful for
               forensics (this will parse tcpdump -w output, for example). 
 
-  -w file   - writes packets to a tcpdump snapshot; useful when you need
-              to save the traffic in case it has to be verified or reviewed
-              later on. Also useful if you encounter any parser bugs -
-              data is being written prior to parsing.
+  -w file   - writes matching packets to a tcpdump snapshot; useful when you 
+              need to save the traffic in case it has to be verified or
+              reviewed later on. Also useful if you encounter any parser bugs 
+              - data is being written prior to parsing.
 
   -o file   - write to this logfile. This option is required for -d
               and implies -t.
@@ -290,7 +302,8 @@
               of time you want to cache, then pass it to p0f with -c.
 
               P0f, when run without -q, also reports average packet ratio
-              on exit.
+              on exit. You can use this to determine the optimal -c
+              setting.
 
               This option has no effect if you do not use -Q nor -M.
 
@@ -328,13 +341,21 @@
 
   -p        - switch card to promiscuous mode; by default, p0f listens 
               only to packets addressed or routed thru the machine it
-              runs on. This setting might decrease performance.
+              runs on. This setting might decrease performance, depending
+              on your network design and load. On switched networks,
+              this usually has little or no effect.
 
-  -t        - add timestamps to every entry. 
+              Note that promiscuous mode on IP-enabled interfaces can be 
+              detected remotely, and is sometimes not welcome by network 
+              administrators.
 
-  -d        - go into daemon mode. Requires -o.
+  -t        - add human-readable timestamps to every entry (use
+              multiple times to change date format, a la tcpdump).
 
-  -l	    - outputs data in line-per-record style (easy to grep).
+  -d        - go into daemon mode (detach from current terminal and 
+              fork into background). Requires -o.
+
+  -l	    - outputs data in line-per-record style (easier to grep).
 
   -A	    - a semi-supported option for SYN+ACK mode. This option
               will fingerprint systems you connect to, as opposed to
@@ -365,9 +386,8 @@
 
   -L        - list all network interfaces. This option is Windows-only.
 
-  -x        - dump full packet contents; this option is not  com­
-              patible  with  -l and is intended for debugging and
-              packet comparison only.
+  -x        - dump full packet contents; this option is not compatible  with
+              -l and is intended for debugging and packet comparison only.
 
   -X        - display packet payload; rarely, control packets we examine
               may carry a payload. This is a bug for the default (SYN)
@@ -413,10 +433,11 @@
   (handle specific visitors differently, block some unwanted OSes,
   optimize the content served).
 
-  OpenBSD users can simply use the pf OS fingerprinting implementation,
-  a cool functionality implemented by Mike Frantzen and based on p0f
-  methodology and signature database. This software allows them to redirect
-  or block OSes any way they want.
+  As mentioned earlier, OpenBSD users can simply use the pf OS fingerprinting 
+  implementation, a cool functionality coded by Mike Frantzen and based on 
+  p0f methodology and signature database. This software allows them to 
+  redirect or block OSes any way they want. Linux netfilter users can also 
+  check out patches by Evgeniy Polyakov.
 
   In other cases, you want to use the -Q option, and then query p0f
   by connecting to a specific local stream socket and sending a single
@@ -454,15 +475,26 @@
   The connection is one-shot. Always send the query and recv the
   response immediately after connect - p0f handles the connection in
   a single thread, and you are blocking other applications (until 
-  timeout, that is, the timeout is defined as two seconds in 
-  config.h).
+  timeout, that is, the timeout is defined as two seconds in config.h).
 
-  There is no MySQL support in version 2 (yet). The authors of the
-  original code did not provide me with patches for the new release,
-  and I didn't have enough time to port it myself.
+---------------------------
+6. SQL database integration
+---------------------------
+
+  At the very moment, p0f does not feature built-in database connectivity,
+  although I am looking for a willing contributor to take care of it.
+  In the meantime, however, you may use p0f_db utility authored by
+  Nerijus Krukauskas:
+
+  http://nk.puslapiai.lt/projects/p0f_db/
+
+  Jonas Eckerman has some tools to make it easier to move p0f output
+  from one system to another, and then to run basic visualization:
+
+  http://whatever.frukt.org/p0f-stats.shtml
 
 -----------------------
-6. Masquerade detection
+7. Masquerade detection
 -----------------------
 
   Masquerade detection (-M) works by looking at the following factors for
@@ -604,14 +636,14 @@
   (RST+ACK), although it's probably less reliable.
 
 ----------------------------------------
-7. Fingerprinting accuracy and precision
+8. Fingerprinting accuracy and precision
 ----------------------------------------
 
   Version 2 uses some more interesting TCP/IP packet metrics, and should
   be inherently more accurate and precise. We also try to use common sense
   when adding and importing signatures, which should be a great
   realiability boost. More obscure modes, such as RST+, may be inherently 
-  less accurate or reliable - see section 9 for more details.
+  less accurate or reliable - see section 10 for more details.
 
   NOTE: To avoid decreasing reliability of the database, you MUST read the 
   information provided at the beginning of p0f.fp carefully before touching
@@ -663,7 +695,7 @@
   require kernel-space hacking. 
 
 --------------------
-8. Adding signatures
+9. Adding signatures
 --------------------
 
   Please refer to p0f.fp for more information about signatures and
@@ -671,7 +703,7 @@
   changing or adding anything.
 
   Do consider submitting your signature to lcamtuf@coredump.cx,
-  wstearns@pobox, or connecting from the system to
+  wstearns@pobox.com, or connecting from the system to
   http://lcamtuf.coredump.cx/p0f-help/. We will be happy to incorporate
   this signature in the official release, and can help you make your
   signature more accurate.
@@ -689,9 +721,9 @@
   http://lcamtuf.coredump.cx/mobp/ lists some other funky cases.
   By all means, I'd like to hear about other UFO sightings!
 
------------
-9. Security
------------
+------------
+10. Security
+------------
 
   Running p0f as a daemon should pose a fairly low risk, compared to
   tcpdump or other elaborate packet parsers (Ettercap, etc). P0f does not
@@ -719,7 +751,7 @@
   use world-writable directories for output files or configuration.
 
 ---------------  
-10. Limitations
+11. Limitations
 ---------------
 
   Proxy firewalls and other high-level proxy devices are not transparent
@@ -769,25 +801,36 @@
   high accuracy. But this is perhaps p0f 3.0.
 
 -------------------------------------
-11. Is it better than other software?
+12. Is it better than other software?
 -------------------------------------
 
   Depends on what you need. As I said before, p0f is fast, lightweight,
   low-profile. It can be integrated with other services. It has a clean and 
   simple code, runs as a single thread and uses very little CPU power, works 
   on a number of systems (Linux, BSD, Solaris and probably others), has a 
-  pretty detailed and accurate fingerprint database.
+  pretty detailed and accurate fingerprint database. Quite frankly, I
+  doubt there is a program that offers better overall functionality or
+  accuracy when it comes to passive fingerprinting, but I would not be
+  surprised to be proven wrong one day. In other words, feel free to
+  explore other alternatives.
 
-  Is it better than Siphon? Yes. Ettercap? Yes, version 2 is better
-  than v1-derived fingerprinting in Ettercap. Besides, it's simply
-  different, and intended for a different range of applications.
+  Of the ones I know... is it better than Siphon? Yes. Ettercap? Yes, 
+  version 2 is better than v1-derived fingerprinting in Ettercap. Besides, 
+  it's simply different, and intended for a different range of applications.
 
-  Version 1 implemented many novel fingerprinting metrics that were
-  later incorporated in other software, so does version 2 (others are
-  yet to catch up).
+  Version 1 of p0f did implement many novel fingerprinting metrics that were
+  later incorporated in other software, but so did version 2 - and others are
+  yet to catch up.
+
+  As to other "current" utilities, you can use masqdet by 
+  Wojtek Kaniewski as an alternative to p0f -M mode. On the web, you can
+  also stumble upon "n0t" and "natdet" utilities authored by "r3b00t",
+  but these are just dumbed-down and inherently less reliable rip-offs
+  closely inspired on p0f code. Your mileage may vary, but I recommend
+  you to avoid them: they won't work any better.
 
 --------------------
-12. Program no work!
+13. Program no work!
 --------------------
 
   Whoops. We apologize. P0f requires the following to compile and
@@ -825,7 +868,7 @@
   is not (yet) recognized. Let us know.
 
 -----------------------
-13. Exact output format
+14. Exact output format
 -----------------------
 
   Following is a brief description of the output format of p0f v2.
@@ -908,10 +951,10 @@
   AAAA is human-readable contents of the packet.
 
   Additionally, when -M option is in effect, the data described in
-  section 6 may be displayed.
+  section 7 may be displayed.
 
 ----------------------------------------
-14. Links to OS fingerprinting resources
+15. Links to OS fingerprinting resources
 ----------------------------------------
 
   Recommended RFC reading:
@@ -951,9 +994,11 @@
     http://ettercap.sourceforge.net/ - Ettercap (p0f v1)
     http://prelude-ids.org - Prelude IDS (p0f v1)
     http://www.w4g.org/fingerprinting.html - OpenBSD pf (p0f v2.0.1)
+    http://cvs.netfilter.org/~checkout~/netfilter/patch-o-matic//base/osf.patch - Linux netfilter
+    http://www-nrg.ee.lbl.gov/bro.html - Vern Paxson's / Holger Dreger's NIDS (p0f 2.0)
 
     http://www.raisdorf.net/projects/pfprintd - pfprintd
     http://siphon.datanerds.net - Siphon (very out of date)
     http://members.fortunecity.com/sektorsecurity/projects/archaeopteryx.html (Siphon w/GUI)
-    
-
+    http://r3b00t.itsec.pl/ - n0t and natdet (ripped off, AFAIC)
+    http://toxygen.net/misc/ - masqdet (NAT detection only)

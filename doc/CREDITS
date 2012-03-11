@@ -29,6 +29,13 @@ And the credits go to:
   Michael Bauer: signatures in bulk
   Ryan Barnett: Solaris testing
   Kirby Kuehl: Windows port fixes and enhancements!
+  Kevin Currie: p0f on the go.
+  Adam Kaufman: FreeBSD build patch
+  Troels Eklund Andersen: MacOS build fixes
+  Radim Kolar: various minor fixes
+  Safari: timestamp fixes and additions
+  Aurelien Jacobs: perl version of p0f query tool
+  Camilo Hernan Viecco: 802.11b fix
 
   William Stearns did lots of work that made v1 successful.
   He does not have any direct contributions to v2 yet, but I hope this will

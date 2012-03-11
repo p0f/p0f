@@ -10,10 +10,11 @@
    implement the same functionality in your code. It's perhaps 10
    lines.
 
-   Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+   Copyright (C) 2003-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 
   */
 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <stdio.h>
 #include <stdlib.h>

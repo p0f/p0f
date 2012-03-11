@@ -5,7 +5,7 @@
 
    A list of known and used MTUs. Note: MSS is MTU-40 on a sane system.
 
-   Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+   Copyright (C) 2003-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 
 */
 
@@ -58,7 +58,8 @@ static struct mtu_def mtu[] = {
   {  4352, "FDDI" },
   {  4500, "token ring (2)" },
   {  9180, "FORE ATM" },
-  { 16436, "sometimes loopback" },
+  { 16384, "sometimes loopback (1)" },
+  { 16436, "sometimes loopback (2)" },
   { 18000, "token ring x4" },
 };
 

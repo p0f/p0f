@@ -18,7 +18,7 @@
    But all this is usually just called "ToS". The "must be zero"
    value is often, well, not zero, of course.
 
-   Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+   Copyright (C) 2003-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 
 */
 

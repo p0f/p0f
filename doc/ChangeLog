@@ -1,4 +1,21 @@
 
+Verison 2.0.4:
+--------------
+
+  More signatures.
+
+  Improved documentation, mentions of p0f_db, etc.
+
+  [BUG] Fixed a minor problem with installation on systems w/o /usr/man/.
+
+  [BUG] Fixed a DLT_NULL problem, added a new loopback signature.
+
+  Multiple timestamp options, timestamps now read from pcap dumps.
+
+  Sync with new Windows port code.
+
+  [BUG] Fixed one-line reporting for masquerade detection.
+
 Version 2.0.3:
 --------------
 

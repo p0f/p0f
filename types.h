@@ -5,7 +5,7 @@
   
    Short and portable names for various integer types.
 
-   Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+   Copyright (C) 2003-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 
 */
 

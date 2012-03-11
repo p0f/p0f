@@ -5,14 +5,14 @@
 
    The defaults are rather sane. Be careful when changing them.
 
-   Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+   Copyright (C) 2003-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 
 */
 
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VER		"2.0.3"
+#define VER		"2.0.4"
 
 /* Paths and names to config files */
 

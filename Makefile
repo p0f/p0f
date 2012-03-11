@@ -4,7 +4,7 @@
 #
 # Just for convenience.
 # 
-# (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 
 all: 
