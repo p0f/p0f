@@ -1,4 +1,47 @@
 
+Version 2.0.3:
+--------------
+
+  Iproved -F.
+
+  Masquerade detection code now checks for time going backwards in
+  timestamps.
+
+  Added uptime in query data and p0fq.c.
+
+  Added -F fuzzy TTL matching option.
+
+  More signatures.
+
+  2.0.3 and -M code ported to Windows, Windows port fixes, all thanks to 
+  Kirby Kuehl <kkuehl@cisco.com>.
+
+  [BUG] Fixed Windows compilation by ifdefing query_cache.
+
+  [BUG] Missing ENDIAN define on SunOS? Added to Makefile. It now 
+  defaults to big endian, perhaps worth auto-detecting in case of
+  Solaris on x86 or such.
+  
+  -r now also resolves the target host.
+
+  Added -X option, sendsyn added. Better Makefile and p0f*.fp documentation.
+  Automatic wildcard for WSS of 12345 and size exceeding PACKET_BIG.
+
+  Documentation (links) updated.
+
+  Sheesh, more cleanup in p0fr.fp explanations and p0f.c RST recognition
+  code.
+
+  test/sendack2.c added.
+
+  Added wildcard for packet size; massive ACK probing to diagnose the
+  payload quoting issue. Many new RST fingerprints for network
+  devices.
+
+  Updated some tos.h signatures.
+
+  [BUG] Fixed Solaris makefile to include p0f-query.c
+
 Version 2.0.2:
 --------------
 
@@ -93,3 +136,11 @@ Version 2.0.1 (2003/09/03):
 
   Initial stable release after a complete rewrite; some of the
   changes are pointed out in README.
+
+  [SECURITY] What was wrong with p0f v1 in terms of security? Other
+  than its inefficient algorithms, there was a risk of a DoS attack
+  while parsing badly malformed packets. The risk would be due to
+  going past end of options, so there is no exploitable condition,
+  but... the original pcap parser wasn't my work (a contributed code),
+  and p0f v1 was not quite intended to be used in serious production
+  systems.

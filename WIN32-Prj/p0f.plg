@@ -1,0 +1,27 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: p0f - Win32 Release--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "D:\DOCUME~1\kkuehl\LOCALS~1\Temp\RSP49.tmp" with contents
+[
+/nologo /ML /W3 /GX /O2 /I "..\\" /I "..\WIN32-Code" /I "..\..\Wpdpack\include" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Fp"Release/p0f.pch" /YX /Fo"Release/" /Fd"Release/" /FD /c 
+"D:\passive\p0f\p0f-query.c"
+]
+Creating command line "cl.exe @D:\DOCUME~1\kkuehl\LOCALS~1\Temp\RSP49.tmp" 
+Creating command line "link.exe ws2_32.lib ..\..\WPdpack\Lib\wpcap.lib Advapi32.lib /nologo /subsystem:console /incremental:no /pdb:"Release/p0f.pdb" /machine:I386 /out:"Release/p0f.exe"  ".\Release\getopt.obj" ".\Release\p0f.obj" ".\Release\p0f-query.obj" "
+<h3>Output Window</h3>
+Compiling...
+p0f-query.c
+Linking...
+
+
+
+<h3>Results</h3>
+p0f.exe - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>

@@ -7,7 +7,9 @@
   get up. You're the sucker."
 
   (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
+
   WIN32 port (C) Copyright 2003 by Michael A. Davis <mike@datanerds.net>
+             (C) Copyright 2003 by Kirby Kuehl <kkuehl@cisco.com>
 
 */
 
@@ -45,10 +47,7 @@
 #include "mtu.h"
 #include "tos.h"
 #include "fpentry.h"
-
-#ifndef WIN32
-#  include "p0f-query.h"
-#endif /* !WIN32 */
+#include "p0f-query.h"
 
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
@@ -99,23 +98,18 @@ static _u8 *config_file,
            *use_iface,
            *use_dump,
            *write_dump,
+		   *use_cache,
 #ifndef WIN32
-           *use_cache,
            *set_user,
 #endif /* !WIN32 */
            *use_rule = "tcp[13] & 0x17 == 2";
 
-#ifndef WIN32
 static _u32 query_cache = DEFAULT_QUERY_CACHE;
 static _s32 masq_thres;
 
-#endif /* !WIN32 */
-
 static _u8 no_extra,
-#ifndef WIN32
            find_masq,
-           masq_flags,
-#endif /* !WIN32 */
+		   masq_flags,
            no_osdesc,
            no_known,
            no_unknown,
@@ -131,7 +125,9 @@ static _u8 no_extra,
            always_sig,
            do_resolve,
            check_collide,
-           full_dump;
+           full_dump,
+           use_fuzzy,
+           payload_dump;
 
 static pcap_t *pt;
 static struct bpf_program flt;
@@ -151,11 +147,9 @@ static void die_nicely(_s32 sig) {
 
     debug("[+] Average packet ratio: %0.2f per minute",r);
 
-#ifndef WIN32
     if (use_cache || find_masq)
       debug(" (cache: %0.2f seconds).\n",query_cache * 60 / r);
     else
-#endif /* !WIN32 */
     debug(".\n");
   }
 
@@ -220,10 +214,11 @@ static void usage(_u8* name) {
           "\nUsage: %s [ -f file ] [ -i device ] [ -s file ] [ -o file ]\n"
 
 #ifndef WIN32
-          "       [ -w file ] [ -Q sock ] [ -u user ] [ -VNDUKASCMRqtpdlr ]\n"
+          "       [ -w file ] [ -Q sock ] [ -u user ] [ -FXVNDUKASCMRqtpdlr ]\n"
           "       [ -c size ] [ -T nn ] [ 'filter rule' ]\n"
 #else
-          "       [ -w file ] [ -NDUKASCLqtpRdlrx ] [ 'filter rule' ]\n"
+		  "       [ -w file ] [ -XVNDUKASCMLRqtpdlrx ]\n"
+		  "       [ -c size]  [ -T nn ] [ 'filter rule' ]\n"
 #endif /* ^WIN32 */
 
           "  -f file   - read fingerprints from file\n"
@@ -234,11 +229,12 @@ static void usage(_u8* name) {
 #ifndef WIN32
           "  -u user   - chroot and setuid to this user\n"
           "  -Q sock   - listen on local socket for queries\n"
+#endif /* !WIN32 */
           "  -c size   - cache size for -Q and -M options\n"
           "  -M        - run masquerade detection\n"
           "  -T nn     - set masquerade detection threshold (1-200)\n"
           "  -V        - verbose masquerade flags reporting\n"
-#endif /* !WIN32 */
+          "  -F        - use fuzzy matching (do not combine with -R)\n"
           "  -N        - do not report distances and link media\n"
           "  -D        - do not report OS details (just genre)\n"
           "  -U        - do not display unknown signatures\n"
@@ -252,6 +248,7 @@ static void usage(_u8* name) {
           "  -d        - daemon mode (fork into background)\n"
           "  -l        - use single-line output (easier to grep)\n"
           "  -x        - include full packet dump (for debugging)\n"
+          "  -X        - display payload string (useful in RST mode)\n"
           "  -C        - run signature collision check\n"
 #ifdef WIN32
           "  -L        - list all available interfaces\n"
@@ -289,7 +286,11 @@ static void collide(_u32 id) {
 
     if (sig[id].df ^ sig[i].df) continue;
     if (sig[id].zero_stamp ^ sig[i].zero_stamp) continue;
-    if (sig[id].size ^ sig[i].size) continue;
+
+    /* Zero means >= PACKET_BIG */
+    if (sig[id].size) { if (sig[id].size ^ sig[i].size) continue; }
+      else if (sig[i].size < PACKET_BIG) continue;
+
     if (sig[id].optcnt ^ sig[i].optcnt) continue;
     if (sig[id].quirks ^ sig[i].quirks) continue;
 
@@ -491,7 +492,7 @@ static void load_config(_u8* file) {
     _u32 l;
 
     _u8 obuf[MAXLINE],genre[MAXLINE],desc[MAXLINE],quirks[MAXLINE];
-    _u8 w[MAXLINE];
+    _u8 w[MAXLINE],sb[MAXLINE];
     _u8* gptr = genre;
     _u32 t,d,s;
     struct fp_entry* e;
@@ -507,11 +508,13 @@ static void load_config(_u8* file) {
     if (!l) continue;
     if (*p == '#') continue;
 
-    if (sscanf(p,"%[0-9%*ST]:%d:%d:%d:%[^:]:%[^ :]:%[^:]:%[^:]",
-                  w,         &t,&d,&s,obuf, quirks,genre,desc) != 8)
+    if (sscanf(p,"%[0-9%*()ST]:%d:%d:%[0-9()*]:%[^:]:%[^ :]:%[^:]:%[^:]",
+                  w,         &t,&d,sb,     obuf, quirks,genre,desc) != 8)
       fatal("Syntax error in config line %d.\n",ln);
 
     gptr = genre;
+
+    if (*sb != '*') s = atoi(sb); else s = 0;
 
 reparse_ptr:
 
@@ -631,7 +634,7 @@ reparse_ptr:
 
         case 'K': 
 	  if (!rst_mode) fatal("Quirk 'K' (line %d) is valid only in RST+ (-R)"
-	      " mode.\n",ln);
+	      " mode (wrong config file?).\n",ln);
   	  sig[sigcnt].quirks |= QUIRK_RSTACK; 
 	  break;
 	  
@@ -777,9 +780,10 @@ static inline void display_signature(_u8 ttl,_u16 tot,_u8 df,_u8* op,_u8 ocnt,
   if (wss && !(wss % 1460)) printf("S%d",wss/1460); else
   if (mss && wss && !(wss % (mss+40))) printf("T%d",wss/(mss+40)); else
   if (wss && !(wss % 1500)) printf("T%d",wss/1500); else
-    printf("%d",wss);
+  if (wss == 12345) printf("*(12345)"); else printf("%d",wss);
 
-  printf(":%d:%d:%d:",ttl,df,tot);
+  if (tot < PACKET_BIG) printf(":%d:%d:%d:",ttl,df,tot);
+  else printf(":%d:%d:*(%d):",ttl,df,tot);
 
   for (j=0;j<ocnt;j++) {
     switch (op[j]) {
@@ -843,10 +847,37 @@ static void dump_packet(_u8* pkt,_u16 plen) {
 }
 
 
+static void dump_payload(_u8* data,_u16 dlen) {
+  _u8  tbuf[PKT_MAXPAY+2];
+  _u8* t = tbuf;
+  _u8  i;
+  _u8  max = dlen > PKT_MAXPAY ? PKT_MAXPAY : dlen;
+
+  if (!dlen) return;
+
+  for (i=0;i<max;i++) {
+    if (isprint(*data)) *(t++) = *data; 
+      else if (!*data)  *(t++) = '?';
+      else *(t++) = '.';
+    data++;
+  }
+
+  *t = 0;
+
+  if (!mode_oneline) putchar('\n');
+  printf("  # Payload: \"%s\"%s",tbuf,dlen > PKT_MAXPAY ? "..." : "");
+
+}
+
+  
+
+  
+
+
 static inline void find_match(_u16 tot,_u8 df,_u8 ttl,_u16 wss,_u32 src,
                        _u32 dst,_u16 sp,_u16 dp,_u8 ocnt,_u8* op,_u16 mss,
                        _u8 wsc,_u32 tstamp,_u8 tos,_u32 quirks,_u8 ecn,
-                       _u8* pkt,_u8 plen) {
+                       _u8* pkt,_u8 plen,_u8* pay) {
 
   _u32 j;
   _u8* a;
@@ -854,6 +885,9 @@ static inline void find_match(_u16 tot,_u8 df,_u8 ttl,_u16 wss,_u32 src,
   struct fp_entry* p;
   _u8  orig_df  = df;
   _u8* tos_desc = 0;
+
+  struct fp_entry* fuzzy = 0;
+  _u8 fuzzy_now = 0;
 
 re_lookup:
 
@@ -864,16 +898,16 @@ re_lookup:
   while (p) {
   
     /* Cheap and specific checks first... */
-    if (tot ^ p->size) { p = p->next; continue; }
+
+    /* psize set to zero means >= PACKET_BIG */
+    if (p->size) { if (tot ^ p->size) { p = p->next; continue; } }
+      else if (tot < PACKET_BIG) { p = p->next; continue; }
+
     if (ocnt ^ p->optcnt) { p = p->next; continue; }
-    if (p->ttl < ttl) { p = p->next; continue; }
+
     if (p->zero_stamp ^ (!tstamp)) { p = p->next; continue; }
     if (p->df ^ df) { p = p->next; continue; }
     if (p->quirks ^ quirks) { p = p->next; continue; }
-
-    /* Naah... can't happen ;-) */
-    if (!p->no_detail)
-      if (p->ttl - ttl > MAXDIST) { p = p->next; continue; }
 
     /* Check MSS and WSCALE... */
     if (!p->mss_mod) {
@@ -911,8 +945,25 @@ re_lookup:
     /* Numbers agree. Let's check options */
 
     for (j=0;j<ocnt;j++)
-      if (p->opt[j] ^ op[j]) goto continue_this;
+      if (p->opt[j] ^ op[j]) goto continue_search;
 
+    /* Check TTLs last because we might want to go fuzzy. */
+    if (p->ttl < ttl) {
+      if (use_fuzzy) fuzzy = p;
+      p = p->next;
+      continue;
+    }
+
+    /* Naah... can't happen ;-) */
+    if (!p->no_detail)
+      if (p->ttl - ttl > MAXDIST) { 
+        if (use_fuzzy) fuzzy = p;
+        p = p->next; 
+        continue; 
+      }
+
+continue_fuzzy:    
+    
     /* Match! */
 
     if (mss & wss) {
@@ -944,6 +995,7 @@ re_lookup:
       }
 
       if (p->generic) printf("[GENERIC] ");
+      if (fuzzy_now) printf("[FUZZY] ");
 
       if (p->no_detail) printf("* "); else
         if (tstamp) printf("(up: %d hrs) ",tstamp/360000);
@@ -965,21 +1017,28 @@ re_lookup:
       if (!no_extra && !p->no_detail) {
 	a=(_u8*)&dst;
         if (!mode_oneline) printf("\n  ");
-        printf("-> %d.%d.%d.%d:%d (distance %d, link: %s)",
-               a[0],a[1],a[2],a[3],dp,p->ttl - ttl,
+
+        if (fuzzy_now) 
+          printf("-> %d.%d.%d.%d%s:%d (link: %s)",
+               a[0],a[1],a[2],a[3],grab_name(a),dp,
                lookup_link(mss,1));
+        else
+          printf("-> %d.%d.%d.%d%s:%d (distance %d, link: %s)",
+                 a[0],a[1],a[2],a[3],grab_name(a),dp,p->ttl - ttl,
+                 lookup_link(mss,1));
       }
+
+      if (pay && payload_dump) dump_payload(pay,plen - (pay - pkt));
 
       putchar('\n');
       if (full_dump) dump_packet(pkt,plen);
 
     }
 
-#ifndef WIN32
-
    if (find_masq && !p->userland) {
-     _s16 sc = p0f_findmasq(src,p->os,p->no_detail ? -1 : (p->ttl - ttl),
-                            mss, nat, orig_df ^ df,p-sig);
+     _s16 sc = p0f_findmasq(src,p->os,(p->no_detail || fuzzy_now) ? -1 : 
+                            (p->ttl - ttl), mss, nat, orig_df ^ df,p-sig,
+                            tstamp ? tstamp / 360000 : -1);
      a=(_u8*)&src;
      if (sc > masq_thres) {
        printf(">> Masquerade at %u.%u.%u.%u%s: indicators at %d%%.",
@@ -993,25 +1052,31 @@ re_lookup:
      }
    }
 
-
    if (use_cache || find_masq)
-     p0f_addcache(src,dst,sp,dp,p->os,p->desc,p->no_detail ? -1 : 
-                  (p->ttl - ttl),p->no_detail ? 0 : lookup_link(mss,0),
-                  tos_desc, orig_df ^ df, nat, !p->userland, mss, p-sig);
-
-#endif /* !WIN32 */
+     p0f_addcache(src,dst,sp,dp,p->os,p->desc,(p->no_detail || fuzzy_now) ? 
+                  -1 : (p->ttl - ttl),p->no_detail ? 0 : lookup_link(mss,0),
+                  tos_desc, orig_df ^ df, nat, !p->userland, mss, p-sig,
+                  tstamp ? tstamp / 360000 : -1);
 
     fflush(0);
 
     return;
 
-continue_this:
+continue_search:
 
     p = p->next;
 
   }
 
   if (!df) { df = 1; goto re_lookup; }
+
+  if (use_fuzzy && fuzzy) {
+    df = orig_df;
+    fuzzy_now = 1;
+    p = fuzzy;
+    fuzzy = 0;
+    goto continue_fuzzy;
+  }
 
   if (mss & wss) {
     if ((wss % mss) && !(wss % 1460)) nat=1;
@@ -1035,11 +1100,11 @@ continue_this:
 
         /* RST+ACK, SEQ=0, ACK=0 */
         case QUIRK_RSTACK | QUIRK_SEQ0:
-          printf("(refused) "); break;
+          printf("(invalid-K0) "); break;
 
         /* RST+ACK, SEQ=0, ACK=n */
         case QUIRK_RSTACK | QUIRK_ACK | QUIRK_SEQ0: 
-          printf("(refused 2) "); break;
+          printf("(refused) "); break;
  
         /* RST+ACK, SEQ=n, ACK=0 */
         case QUIRK_RSTACK: 
@@ -1055,7 +1120,7 @@ continue_this:
 
         /* RST, SEQ=m, ACK=n */
         case QUIRK_ACK: 
-          printf("(invalid-A) "); break;
+          printf("(dropped 2) "); break;
  
         /* RST, SEQ=0, ACK=0 */
         case QUIRK_SEQ0: 
@@ -1083,16 +1148,16 @@ continue_this:
     if (!no_extra) {
       a=(_u8*)&dst;
       if (!mode_oneline) printf("\n  ");
-      printf("-> %d.%d.%d.%d:%d (link: %s)",a[0],a[1],a[2],a[3],
-               dp,lookup_link(mss,1));
+      printf("-> %d.%d.%d.%d%s:%d (link: %s)",a[0],a[1],a[2],a[3],
+	       grab_name(a),dp,lookup_link(mss,1));
     }
 
-#ifndef WIN32
     if (use_cache)
       p0f_addcache(src,dst,sp,dp,0,0,-1,lookup_link(mss,0),tos_desc,
-                   0,nat,0 /* not real, we're not sure */ ,mss,(_u32)-1);
-#endif /* !WIN32 */
+                   0,nat,0 /* not real, we're not sure */ ,mss,(_u32)-1,
+                   tstamp ? tstamp / 360000 : -1);
 
+    if (pay && payload_dump) dump_payload(pay,plen - (pay - pkt));
     putchar('\n');
     if (full_dump) dump_packet(pkt,plen);
     fflush(0);
@@ -1112,6 +1177,7 @@ static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
   struct tcp_header *tcph;
   _u8*   end_ptr;
   _u8*   opt_ptr;
+  _u8*   pay = 0;
   _s32   ilen,olen;
 
   _u8    op[MAXOPT];
@@ -1194,6 +1260,7 @@ static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
 #endif /* DEBUG_EXTRAS */
   
     quirks |= QUIRK_DATA;
+    pay = opt_ptr + ilen;
    
   }
 
@@ -1324,7 +1391,8 @@ end_parsing:
      /* Q? */    quirks,
      /* ECN */   tcph->flags & (TH_ECE|TH_CWR),
      /* pkt */   (_u8*)iph,
-     /* len */   end_ptr - (_u8*)iph
+     /* len */   end_ptr - (_u8*)iph,
+     /* pay */   pay
   );
 
 #ifdef DEBUG_EXTRAS
@@ -1348,14 +1416,14 @@ int main(int argc,char** argv) {
   _u8 ebuf[PCAP_ERRBUF_SIZE];
   pcap_if_t *alldevs, *d;
   _s32 adapter, i;
-  while ((r = getopt(argc, argv, "f:i:s:o:w:NDKUqtpArRlSdCL")) != -1) 
+  while ((r = tgetopt(argc, argv, "f:i:s:o:w:c:T:XNVFDxKUqtpArRlSdCLM")) != -1)
 #else
   _s32 lsock=0;
 
   if (getuid() != geteuid())
     fatal("This program is not intended to be setuid.\n");
   
-  while ((r = getopt(argc, argv, "f:i:s:o:Q:u:w:c:T:NVDxKUqtRpArlSdCM")) != -1) 
+  while ((r = getopt(argc, argv, "f:i:s:o:Q:u:w:c:T:XFNVDxKUqtRpArlSdCM")) != -1) 
 #endif /* ^WIN32 */
 
     switch (r) {
@@ -1375,14 +1443,15 @@ int main(int argc,char** argv) {
                 add_timestamp = 1;
                 break;
 
-#ifndef WIN32
       case 'V': masq_flags = 1;      break;
-      case 'Q': use_cache  = optarg; break;
-      case 'u': set_user   = optarg; break;
       case 'M': find_masq  = 1;      break;
       case 'T': masq_thres = atoi(optarg);
                 if (masq_thres <= 0 || masq_thres > 200) fatal("Invalid -T value.\n");
                 break;
+
+#ifndef WIN32
+      case 'Q': use_cache  = optarg; break;
+      case 'u': set_user   = optarg; break;
 #endif /* !WIN32 */
 
       case 'r': do_resolve    = 1; break;
@@ -1398,6 +1467,8 @@ int main(int argc,char** argv) {
       case 'l': mode_oneline  = 1; break;
       case 'C': check_collide = 1; break;
       case 'x': full_dump     = 1; break;
+      case 'X': payload_dump  = 1; break;
+      case 'F': use_fuzzy     = 1; break;
 
       case 'A': use_rule = "tcp[13] & 0x17 == 0x12";
                 ack_mode = 1;
@@ -1445,15 +1516,10 @@ int main(int argc,char** argv) {
           "compatible.\n");
 #endif
 
-#ifndef WIN32
-
   if (find_masq || use_cache)
     p0f_initcache(query_cache);
     
   if (!use_cache && !find_masq && no_known && no_unknown)
-#else
-  if (no_known && no_unknown)
-#endif /* ^WIN32 */
     fatal("-U and -K are mutually exclusive (except with -Q or -M).\n");
 
   if (!use_logfile && go_daemon)
@@ -1461,16 +1527,20 @@ int main(int argc,char** argv) {
 
   if (!no_banner) {
     debug("p0f - passive os fingerprinting utility, version " VER "\n"
-          "(C) M. Zalewski <lcamtuf@coredump.cx>, W. Stearns <wstearns@pobox.com>\n");  
+          "(C) M. Zalewski <lcamtuf@dione.cc>, W. Stearns <wstearns@pobox.com>\n");  
 #ifdef WIN32
-    debug("WIN32 version (C) Michael A. Davis <mike@datanerds.net>\n");
+    debug("WIN32 port (C) M. Davis <mike@datanerds.net>, K. Kuehl <kkuehl@cisco.com>\n");
 #endif /* WIN32 */
+
+    if (use_fuzzy && rst_mode)
+      debug("[!] WARNING: It is a bad idea to combine -F and -R.\n");
+
   }
 
   load_config(config_file);
 
   if (argv[optind] && *(argv[optind])) {
-    sprintf(buf,"(%s) and (%4000s)",use_rule,argv[optind]);
+    sprintf(buf,"(%s) and (%3000s)",use_rule,argv[optind]);
     use_rule = buf;
   } 
 
@@ -1480,6 +1550,7 @@ int main(int argc,char** argv) {
 #ifndef WIN32
   signal(SIGHUP,&die_nicely);
   signal(SIGQUIT,&die_nicely);
+
 
   if (use_cache) {
     struct sockaddr_un x;
@@ -1494,7 +1565,6 @@ int main(int argc,char** argv) {
     if (listen(lsock,10)) pfatal("listen");
 
   }
-
 #endif /* !WIN32 */
 
   if (use_dump) {
@@ -1545,10 +1615,8 @@ int main(int argc,char** argv) {
           use_dump?use_dump:use_iface,sigcnt,gencnt,
           argv[optind]?argv[optind]:"all");
 
-#ifndef WIN32
     if (use_cache) debug("[*] Accepting queries at socket %s (timeout: %d s).\n",use_cache,QUERY_TIMEOUT);
     if (find_masq) debug("[*] Masquerade detection enabled at threshold %d%%.\n",masq_thres);
-#endif /* !WIN32 */
     
   }
   

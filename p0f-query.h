@@ -31,7 +31,11 @@
 #define D_FW2_1   0x0080
 #define D_NAT2_2  0x0100
 #define D_FW2_2   0x0200
-#define D_FAR     0x0400
+#define D_FAST    0x0400
+#define D_TNEG    0x0800
+
+#define D_TIME    0x4000
+#define D_FAR     0x8000
 
 
 struct p0f_query {
@@ -58,6 +62,7 @@ struct p0f_response {
   _u8  real;			/* A real operating system? */
   _s16 score;			/* Masquerade score (or NO_SCORE) */
   _u16 mflags;			/* Masquerade flags (D_*) */
+  _s32 uptime;			/* Uptime in hours (-1 = unknown) */
 };
 
 
@@ -69,12 +74,13 @@ void p0f_initcache(_u32 csiz);
 
 void p0f_addcache(_u32 saddr,_u32 daddr,_u16 sport,_u16 dport,
                   _u8* genre,_u8* detail,_s8 dist,_u8* link,_u8* tos,
-                  _u8 fw,_u8 nat,_u8 real,_u16 mss,_u32 signo);
+                  _u8 fw,_u8 nat,_u8 real,_u16 mss,_u32 signo,
+                  _s32 uptime);
 
 void p0f_handlequery(_s32 sock,struct p0f_query* q);
 
 _s16 p0f_findmasq(_u32 sad,_u8* genre,_s8 dist,_u16 mss,
-                  _u8 nat,_u8 fw,_u32 signo);
+                  _u8 nat,_u8 fw,_u32 signo,_s32 uptime);
 
 void p0f_descmasq(void);
 

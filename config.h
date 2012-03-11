@@ -12,7 +12,7 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VER		"2.0.2"
+#define VER		"2.0.3"
 
 /* Paths and names to config files */
 
@@ -55,9 +55,24 @@
 
 #define DEFAULT_QUERY_CACHE	128
 
+/* Maximum timestamp difference (hours) between two masquerade  
+   signatures to be considered sane; should be reasonably high, as some
+   systems might be running at higher timestamp change frequencies
+   than usual. */
+
+#define MAX_TIMEDIF	600
+
 /* Packet dump - bytes per line; this is a sane setting. */
 
 #define PKT_DLEN	16
+
+/* Display no more than PKT_MAXPAY bytes of payload in -X mode. */
+
+#define PKT_MAXPAY	45
+
+/* Size limit for size wildcards - see p0fr.fp for more information. */
+
+#define PACKET_BIG      100
 
 /* Packet snap length. This is passed to libpcap, and should be never
    below 100 or such. Keep it reasonably low for performance reasons. */

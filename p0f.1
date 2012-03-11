@@ -3,7 +3,7 @@
 p0f \- identify remote systems passively
 .SH SYNOPSIS
 .B p0f
-.I p0f [ -f file ] [ -i device ] [ -s file ] [ -o file ] [ -c size ] [ -Q socket ] [ -T nn ] [ -u user ] [ -w file ] [ -NVDUKALMqRtpdlx ] [ 'filter rule' ]
+.I p0f [ -f file ] [ -i device ] [ -s file ] [ -o file ] [ -c size ] [ -Q socket ] [ -T nn ] [ -u user ] [ -w file ] [ -FNXVDUKALMqRtpdlx ] [ 'filter rule' ]
 .br
 .SH "DESCRIPTION"
 .PP
@@ -89,6 +89,11 @@ in -Q mode. The default is sane for a system with a moderate load (under
 No details - do not report distances and link media. This option
 logs only source IP and OS data.
 .TP
+\fB\-F\fR
+Deploy fuzzy TTL match algorithm; this mode tries to find approximate matches
+when no exact signature is found; not
+recommended for RST+ modes.
+.TP
 \fB\-D\fR
 Do not report OS version information (just genre).
 .TP
@@ -153,6 +158,10 @@ accurate.
 \fB\-x\fR
 Dump full packet contents; this option is not compatible with -l
 and is intended for debugging and packet comparison only.
+.TP
+\fB\-X\fR
+Dump packet payload. This option is useful to examine packet
+payloads for -D signatures (particularly in -R mode).
 .TP
 \fB\-M\fR
 Deploy masuqerade detection algotihm. The algorithm looks over recent

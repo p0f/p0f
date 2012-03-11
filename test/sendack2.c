@@ -1,22 +1,12 @@
 /*
-   sendack - RST trigger
-   ---------------------
+   sendack2 - RST trigger with data payload
+   ----------------------------------------
 
-   This is a trivial code to send a stray ACK packet to a remote
-   host. The main purpose of this is to gather new RST ("connection dropped") 
-   signatures quickly, but you can also use it for silent active 
-   fingerprinting when you can't or don't want to use -A mode.
+   See sendack.c for more information. The only difference is that this
+   tool sends a packet with a payload to check for some silly implementations
+   that bounce the payload back or do other magic.
 
    THIS PROGRAM IS NOT SUITABLE FOR GATHERING "Connection refused" SIGNATURES.
-
-   Run p0f in the background in -R mode, then run sendack, observe
-   results, if any. This code uses a distinct WSS of 12345. If you see
-   it in the signature returned by p0f, you need to wildcard the value
-   (p0f does the first step for you), as it appears to be dependent on the 
-   original packet and may vary on the other party's stack.
-
-   Linux code, may not work on systems that use different mechanism to
-   access raw sockets.
 
    Copyright (C) 2003 by Michal Zalewski <lcamtuf@coredump.cx>
 
@@ -45,7 +35,7 @@ static _u8 synpacket[] = {
 
   /* IHL    */ 0x45,
   /* ToS    */ 0x00,
-  /* totlen */ 0x00, 0x28,
+  /* totlen */ 0x00, 0x28 + 4,
   /* ID     */ 0x00, 0x00,
   /* offset */ 0x00, 0x00,
   /* TTL    */ 0xFF,
@@ -64,17 +54,30 @@ static _u8 synpacket[] = {
   /* flags */  0x10,         /* just ACK */
   /* wss   */  0x30, 0x39,   /* 12345 */
   /* cksum */  0x00, 0x00,
-  /* urg   */  0x00, 0x00
+  /* urg   */  0x00, 0x00,
+
+  /* PAYLOAD - 80 bytes. Please keep this message intact. */
+
+  0x43,0x6f,0x6e,0x74,0x61,0x63,0x74,0x20,
+  0x6c,0x63,0x61,0x6d,0x74,0x75,0x66,0x40,
+  0x63,0x6f,0x72,0x65,0x64,0x75,0x6d,0x70,
+  0x2e,0x63,0x78,0x20,0x69,0x66,0x20,0x79,
+  0x6f,0x75,0x20,0x61,0x72,0x65,0x20,0x63,
+  0x75,0x72,0x69,0x6f,0x75,0x73,0x20,0x61,
+  0x62,0x6f,0x75,0x74,0x20,0x74,0x68,0x65,
+  0x20,0x70,0x75,0x72,0x70,0x6f,0x73,0x65,
+  0x20,0x6f,0x66,0x20,0x74,0x68,0x69,0x73,
+  0x20,0x70,0x61,0x63,0x6b,0x65,0x74,0x2e
 
 };
 
 
 _u16 simple_tcp_cksum(void) {
-  _u32 sum = 26 /* tcp, len 20 */;
+  _u32 sum = 6 + 20 + 80 /* proto tcp (6), tcp len 20 + 80 */;
   _u8  i;
   _u8* p = synpacket + 20;
 
-  for (i=0;i<10;i++) {
+  for (i=0;i<10 + 40;i++) {
     sum += (*p << 8) + *(p+1);
     p+=2;
   }
@@ -126,8 +129,8 @@ int main(int argc, char** argv) {
 
   if (sendto(sock,synpacket,sizeof(synpacket), 0,(struct sockaddr *)&sain,
     sizeof(struct sockaddr)) < 0) perror("sendto");
-  else 
-    printf("Stray ACK sent to %s to port %d.\n",argv[2],ntohs(p));
+  else
+    printf("Stray ACK (with data) sent to %s to port %d.\n",argv[2],ntohs(p));
 
   return 0;
   

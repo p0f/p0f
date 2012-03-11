@@ -58,10 +58,22 @@
 #   two network interfaces. Thus, some Linux systems that do not go thru NAT,
 #   but have multiple interfaces instead, will be also tagged this way.
 #
+#   P0f recognizes and automatically wildcards WSS of 12345, as generated
+#   by sendack and sendsyn utilities shipped with the program, when
+#   reporting a new signature. See test/sendack.c and test/sendsyn.c for more
+#   information about this.
+#
 # - Overall packet size - a function of all IP and TCP options and bugs.
 #   While this is partly redundant in the real world, we record this value
 #   to capture rare cases when there are IP options (which we do not currently
 #   examine) or packet data past the headers. Both situations are rare.
+#
+#   Packet size MAY be wildcarded, but the meaning of the wildcard is
+#   very special, and means the packet must be larger than PACKET_BIG
+#   (defined in config.h as 100). This is usually not necessary, except
+#   for some really broken implementations in RST+ mode. For more information,
+#   see p0fr.fp. P0f automatically wildcards big packets when reporting
+#   new signatures.
 #
 #   NEW SIGNATURE: Copy this value literally.
 #
@@ -77,6 +89,8 @@
 #   might not use round TTLs (in particular, some shoddy appliances and
 #   IRIX and Tru64 are known to use "original" initial TTL settings). If not
 #   sure, use traceroute or mtr to see how far you are from the host.
+#
+#   Note that -F option overrides this check if no signature can be found.
 #
 # - Don't fragment flag (DF) - some modern OSes set this to implement PMTU
 #   discovery. Others do not bother.
@@ -112,7 +126,7 @@
 # - Timestamp - some systems that implement timestamps set them to
 #   zero in the initial SYN. This case is detected and handled appropriately.
 #
-#   NEW SIGNATURE: Copy T option literally.
+#   NEW SIGNATURE: Copy T or T0 option literally.
 #
 # - Selective ACK permitted - a flag set by systems that implement 
 #   selective ACK functionality,
@@ -148,16 +162,17 @@
 #   related to the main and expected header layout. We detect the following:
 #
 #   - Data past the headers. Neither SYN nor SYN+ACK packets are supposed
-#     to carry any payload. If they do, we should take notic. The actual
-#     payload is not examined, but will be displayed if you compile p0f with
-#     DEBUG_EXTRAS.
+#     to carry any payload. If they do, we should take notice. The actual
+#     payload is not examined, but will be displayed if use the -X option.
+#     Note that payload is not unusual in RST+ mode (see p0fr.fp), very
+#     rare otherwise.
 #
 #   - Options past EOL. Some systems have some trailing data past EOL
 #     in the options section of TCP/IP headers. P0f does not examine this
 #     data as of today, simply detects its presence. If there is a
 #     confirmed sizable population of systems that have data past EOL, it
 #     might be a good idea to look at it. Until then, you have to recompile
-#     p0f with DEBUG_EXTRAS set to display this data,
+#     p0f with DEBUG_EXTRAS set or use -x to display this data,
 #
 #   - Zero IP ID. This again is a (mostly) harmless setting to use a fixed
 #     IP ID for packets with DF set. Some systems reportedly use zero ID,
@@ -171,27 +186,30 @@
 #     set, but there can be some. Until there is a confirmed sizable
 #     population of systems that do have IP options in a packet, p0f
 #     does not examine those in detail, but it might change (use
-#     DEBUG_EXTRAS to display IP options if any found),
+#     DEBUG_EXTRAS or -x to display IP options if any found),
 #
 #   - URG pointer value. SYN packets do not have URG flag set, so the
 #     value in URG pointer in TCP header is ignored. Most systems set it
 #     to zero, but some OSes (some versions of Windows, for example) do
 #     not zero this field or even simply leak memory; the actual value is
 #     not examined, because most cases seem to be just random garbage
-#     (you can use DEBUG_EXTRAS to report this information though),
+#     (you can use DEBUG_EXTRAS or -x to report this information though);
+#     see doc/win-memleak.txt for more information,
 #
 #   - "Unused" field value. This should be always zero, but some systems
 #     forget to clear it. This might result in some funny issues in the
 #     future. P0f checks for non-zero value (and will display it if
-#     DEBUG_EXTRAS is set),
+#     DEBUG_EXTRAS is set, or you can use -x),
 #
 #   - ACK number non-zero. ACK value in SYN packets with no ACK flag
 #     is disregarded and is usually set to zero (just like with URG
 #     pointer), but some systems forget to do it. The exact value is
-#     not examined (but will be displayed with DEBUG_EXTRAS),
+#     not examined (but will be displayed with DEBUG_EXTRAS, or you can
+#     use -x). Note that this is not an anomaly in SYN+ACK and RST+ modes,
 #
 #   - Non-zero second timestamp. The initial SYN packet should have the
-#     second timestamp always zeroed.
+#     second timestamp always zeroed. SYN+ACK and RST+ may "legally" have
+#     this quirk though,
 #
 #   - Unusual flags. If, in addition to SYN (or SYN+ACK), there are some
 #     auxilinary flags that do not modify the very meaning of a packet,
@@ -205,7 +223,7 @@
 #   - TCP option segment parsing problems. If p0f fails to decode options
 #     because of a badly broken packet, it records this fact.
 #
-#   There are several other quirks valid in RST+ mode, see p0fr.fp for
+#   There are several other quirks valid only in RST+ mode, see p0fr.fp for
 #   more information. Those quirks are unheard of in SYN and SYN+ACK 
 #   modes.
 #
@@ -228,7 +246,7 @@
 #	     "Snn" (multiple of MSS) and "Tnn" (multiple of MTU) are allowed.
 # ttt      - initial TTL 
 # D        - don't fragment bit (0 - not set, 1 - set)
-# ss       - overall SYN packet size
+# ss       - overall SYN packet size (* has a special meaning)
 # OOO      - option value and order specification (see below)
 # QQ       - quirks list (see below)
 # OS       - OS genre (Linux, Solaris, Windows)
@@ -288,8 +306,6 @@
 # D     - data payload,
 # !     - broken options segment.
 #
-# For Q, K and 0 quirks, please refer to p0fr.fp.
-#
 # WARNING WARNING WARNING
 # -----------------------
 #
@@ -335,6 +351,8 @@
 # Linux 2.0, but it uses a fairly rare MSSes, at least sometimes...
 # This is a shoddy hack, though.
 
+45046:64:0:44:M*:.:AIX:4.3
+
 16384:64:0:44:M512:.:AIX:4.3.2 and earlier
 
 16384:64:0:60:M512,N,W%2,N,N,T:.:AIX:4.3.3-5.2 (1)
@@ -365,6 +383,8 @@ S4:64:1:60:M*,S,T,N,W0:.:Linux:2.4/2.6
 
 S3:64:1:60:M*,S,T,N,W1:.:Linux:2.5 (sometimes 2.4) (1)
 S4:64:1:60:M*,S,T,N,W1:.:Linux:2.5/2.6 (sometimes 2.4) (2)
+S3:64:1:60:M*,S,T,N,W2:.:Linux:2.5 (sometimes 2.4) (3)
+S4:64:1:60:M*,S,T,N,W2:.:Linux:2.5 (sometimes 2.4) (4)
 
 S20:64:1:60:M*,S,T,N,W0:.:Linux:2.2.20 and newer
 S22:64:1:60:M*,S,T,N,W0:.:Linux:2.2 (1)
@@ -437,16 +457,18 @@ S17:255:1:44:M*:.:Solaris:2.5 to 7
 # Sometimes, just sometimes, Solaris feels like coming up with
 # rather arbitrary MSS values ;-)
 
-S6:255:1:44:M*:.:Solaris:2.6/7
+S6:255:1:44:M*:.:Solaris:2.5-7
 S23:64:1:48:N,N,S,M*:.:Solaris:8 (2)
 S34:64:1:48:M*,N,N,S:.:Solaris:9
 S44:255:1:44:M*:.:Solaris:7
 
 4096:64:0:44:M1460:.:SunOS:4.1.x
 
+S34:64:1:52:M*,N,W0,N,N,S:.:Solaris:10 (beta)
+
 # ----------------- IRIX --------------------
 
-49152:60:0:44:M*:.:IRIX:6.4
+49152:60:0:44:M*:.:IRIX:6.2-6.4
 61440:60:0:44:M*:.:IRIX:6.2-6.5
 49152:60:0:52:M*,N,W2,N,N,S:.:IRIX:6.5 (RFC1323) (1)
 49152:60:0:52:M*,N,W3,N,N,S:.:IRIX:6.5 (RFC1323) (2)
@@ -477,8 +499,6 @@ S2:255:1:48:M*,W0,E:.:MacOS:8.6 classic
 
 32768:255:1:48:M1380,N,N,N,N:.:MacOS:9.1 (1) (OT 2.7.4)
 65535:255:1:48:M*,N,N,N,N:.:MacOS:9.1 (2) (OT 2.7.4)
-
-32768:64:0:60:M*,N,W0,N,N,T:.:MacOS:X:10.2
 
 # ----------------- Windows -----------------
 
@@ -600,6 +620,7 @@ S16:64:0:44:M512:.:QNX:demodisk
 
 16384:128:1:44:M1460:.:Novell:NetWare 5.0
 6144:128:1:44:M1460:.:Novell:IntranetWare 4.11
+6144:128:1:44:M1368:.:Novell:BorderManager ?
 
 # According to rfp:
 6144:128:1:52:M*,W0,N,S,N,N:.:Novell:Netware 6 SP3
@@ -626,6 +647,19 @@ S56:64:0:44:M512:.:OS/2:4
 
 S32:64:1:56:M*,N,N,S,N,N,?12:.:AMIGA:3.9 BB2 with Miami stack
 
+# ------------------ Minix ------------------
+
+# Not quite sure.
+# 8192:210:0:44:M1460:X:@Minix:?
+
+# ------------------ Plan9 ------------------
+
+65535:255:0:48:M1460,W0,N:.:Plan9:edition 4
+
+# ----------------- AMIGAOS -----------------
+
+16384:64:1:48:M1560,N,N,S:.:AMIGAOS:3.9 BB2 MiamiDX
+
 ###########################################
 # Appliance / embedded / other signatures #
 ###########################################
@@ -638,8 +672,11 @@ S12:64:1:48:N,N,S,M1460:.:@Checkpoint:(unknown 2)
 60352:64:0:52:M1460,N,W2,N,N,S:.:Clavister:firewall 7.x
 
 S32:64:0:68:M512,N,W0,N,N,T,N,N,?12:.:Nokia:IPSO w/Checkpoint NG FP3
+S16:64:0:68:M1024,N,W0,N,N,T,N,N,?12:.:Nokia:IPSO 3.7 build 026
 
 S4:64:1:60:W0,N,S,T,M1460:.:FortiNet:FortiGate 50
+
+8192:64:1:44:M1460:.:@Eagle:Secure Gateway
 
 # ------- Switches and other stuff ----------
 
@@ -657,7 +694,7 @@ S8:255:0:44:M*:.:Cisco:12008
 
 32850:64:1:64:N,W1,N,N,T,N,N,S,M*:.:NetCache:Data OnTap 5.x
 
-65535:64:0:60:M1460,N,W0,N,N,T:.:CacheFlow:CacheOS ?
+65535:64:0:60:M1460,N,W0,N,N,T:.:CacheFlow:CacheOS 4.1
 8192:64:0:60:M1380,N,N,N,N,N,N,T:.:CacheFlow:CacheOS 1.1
 
 S4:64:0:48:M1460,N,N,S:.:Cisco:Content Engine
@@ -675,10 +712,13 @@ S9:255:0:44:M536:.:PalmOS:Tungsten C
 S5:255:0:44:M536:.:PalmOS:3/4
 S4:255:0:44:M536:.:PalmOS:3.5
 2948:255:0:44:M536:.:PalmOS:3.5.3 (Handera)
+S29:255:0:44:M536:.:PalmOS:5.0
 
 S23:64:1:64:N,W1,N,N,T,N,N,S,M1460:.:SymbianOS:7
 8192:255:0:44:M1460:.:SymbianOS:6048 (on Nokia 7650?)
 8192:255:0:44:M536:.:SymbianOS:(on Nokia 9210?)
+
+32768:32:1:44:M1460:.:Windows:CE 3
 
 # Perhaps S4?
 5840:64:1:60:M1452,S,T,N,W1:.:Zaurus:3.10
@@ -712,9 +752,13 @@ S12:64:0:44:M1452:.:AXIS:Printer Server 5600 v5.64
 3072:64:0:60:W10,N,M265,T,E:PF:-*NMAP:OS detection probe w/flags (3)
 4096:64:0:60:W10,N,M265,T,E:PF:-*NMAP:OS detection probe w/flags (4)
 
+12345:255:0:40:.:A:-p0f:sendsyn utility
+
 # UFO - see tmp/*:
 56922:128:0:40:.:A:-@Mysterious:port scanner (?)
 5792:64:1:60:M1460,S,T,N,W0:T:-@Mysterious:NAT device (2nd tstamp)
+S12:128:1:48:M1460,E:P:@Mysterious:Chello proxy (?)
+S23:64:1:64:N,W1,N,N,T,N,N,S,M1380:.:@Mysterious:GPRS gateway (?)
 
 #####################################
 # Generic signatures - just in case #

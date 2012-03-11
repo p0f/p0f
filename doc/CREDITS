@@ -25,8 +25,12 @@ And the credits go to:
   Dan Nelson: small p0frep fix
   rain forest puppy: many signatures
   Peter Gamache: p0fq fixes
+  Paul Woo: signatures in bulk
+  Michael Bauer: signatures in bulk
+  Ryan Barnett: Solaris testing
+  Kirby Kuehl: Windows port fixes and enhancements!
 
-  William Stearns did lots of work that made v2 possible and v1 successful.
+  William Stearns did lots of work that made v1 successful.
   He does not have any direct contributions to v2 yet, but I hope this will
   change, until then, this is a honorary mention.
 

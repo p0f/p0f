@@ -43,27 +43,25 @@ struct tos_def {
   200 Borlange Sweden
    96 Nextra
    28 Menta 
-  255 arcor-ip.net (must-be-zero!)
-   92 t-dialin.de?
-   40 many .se boxes?
   192 techtelnet.net
-  244: also UUNET?
 
  */
 
 static struct tos_def tos[] = {
-  {   2, "low cost" },			/* LC */
-  {   4, "high reliability" },		/* HR */
-  {   8, "low delay" },			/* LD */
-  {  12, "DNA Finland" },		/* LD, HR */
-  {  16, "high throughput" },		/* HT */
-  {  32, "priority1" },			/* PRI1 */
-  {  64, "Tiscali Denmark" },		/* PRI2 */
-  {  80, "Bredband Scandinavia" },	/* PRI2, HT */
-  { 112, "Bonet Sweden" },		/* PRI3, HT */
-  { 128, "Cable Bulgaria" },		/* PRI4 */
-  { 144, "IPTelecom Ukraine" },		/* PRI4, HT */
-  { 224, "Westnet Australia" }		/* PRI7 */
+  {   2, "low cost" },				/* LC */
+  {   4, "high reliability" },			/* HR */
+  {   8, "low delay" },				/* LD */
+  {  12, "DNA.FI / CTINETS" },			/* LD, HR */
+  {  16, "high throughput" },			/* HT */
+  {  32, "priority1" },				/* PRI1 */
+  {  40, "UTFORS Sweden" },			/* PRI1, LD */
+  {  64, "Tiscali Denmark" },			/* PRI2 */
+  {  80, "Bredband Scandinavia" },		/* PRI2, HT */
+  { 112, "Bonet Sweden" },			/* PRI3, HT */
+  { 128, "Cable.BG / Teleca.SE" },		/* PRI4 */
+  { 144, "IPTelecom / Alkar" },			/* PRI4, HT */
+  { 244, "top priority" },			/* PRI7 */
+  { 255, "Arcor IP" },				/* (bad) */
 };
 
 #define TOS_CNT (sizeof(tos) / sizeof(struct tos_def))

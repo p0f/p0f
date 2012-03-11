@@ -97,6 +97,8 @@ int main(int argc,char** argv) {
   if (r.link[0]) printf("Link     : %s\n",r.link);
   if (r.tos[0])  printf("Service  : %s\n",r.tos);
 
+  if (r.uptime != -1)  printf("Uptime   : %d hrs\n",r.uptime);
+
   if (r.score != NO_SCORE) 
     printf("M-Score  : %d%% (flags %x).\n",r.score,r.mflags);
 

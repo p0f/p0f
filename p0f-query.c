@@ -16,9 +16,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef WIN32
 #include <unistd.h>
-#include <string.h>
 #include <sys/socket.h>
+#endif
+#include <string.h>
+
 #include <sys/types.h>
 
 #include "p0f-query.h"
@@ -55,7 +58,7 @@ void p0f_initcache(_u32 csiz) {
 
 void p0f_addcache(_u32 saddr,_u32 daddr,_u16 sport,_u16 dport,
                   _u8* genre,_u8* detail,_s8 dist,_u8* link,_u8* tos,
-                  _u8 fw,_u8 nat,_u8 real,_u16 mss,_u32 signo) {
+                  _u8 fw,_u8 nat,_u8 real,_u16 mss,_u32 signo,_s32 uptime) {
 
   struct cache_data* cur = *c + cur_c;
   struct p0f_response* sc = &cur->s;
@@ -66,8 +69,7 @@ void p0f_addcache(_u32 saddr,_u32 daddr,_u16 sport,_u16 dport,
   cur->dad   = daddr;
   cur->ports = (sport << 16) + dport;
 
-  bzero(sc,sizeof(sc));
-
+  memset(sc,0,sizeof(sc));
   if (genre) {
     strncpy(sc->genre,genre,19);
     strncpy(sc->detail,detail,39);
@@ -82,6 +84,7 @@ void p0f_addcache(_u32 saddr,_u32 daddr,_u16 sport,_u16 dport,
   sc->fw      = fw;
   sc->nat     = nat;
   sc->real    = real;
+  sc->uptime  = uptime;
 
   cur_c = (cur_c + 1) % QUERY_CACHE;
 
@@ -147,13 +150,16 @@ void p0f_descmasq(void) {
   if (flags & D_NAT2_2) printf("NAT2 ");
   if (flags & D_FW2_1)  printf("FW1 ");
   if (flags & D_FW2_2)  printf("FW2 ");
+  if (flags & D_FAST)   printf("FAST ");
+  if (flags & D_TNEG)   printf("TNEG ");
+  if (flags & D_TIME)   printf("-time ");
   if (flags & D_FAR)    printf("-far ");
 }
 
   
 
 _s16 p0f_findmasq(_u32 sad,_u8* genre,_s8 dist,_u16 mss,
-                  _u8 nat,_u8 fw,_u32 signo) {
+                  _u8 nat,_u8 fw,_u32 signo,_s32 uptime) {
 
   _s32 i;
   _s16 pscore = 0;
@@ -175,6 +181,14 @@ _s16 p0f_findmasq(_u32 sad,_u8* genre,_s8 dist,_u16 mss,
 
     if (mss ^ cur->mss)     flags |= D_LINK;
     if (dist ^ cur->s.dist) flags |= D_DIST;
+
+    if (uptime >= 0 && cur->s.uptime >= 0) {
+      _s32 td = uptime - cur->s.uptime;
+      if (td < 0)                flags |= D_TNEG;
+      else if (td > MAX_TIMEDIF) flags |= D_FAST;
+      else                       flags |= D_TIME;
+    }
+      
     
     if (signo ^ cur->signo) {
       flags |= D_DETAIL;
@@ -209,7 +223,12 @@ _s16 p0f_findmasq(_u32 sad,_u8* genre,_s8 dist,_u16 mss,
   if (flags & D_NAT2_2) score++;
   if (flags & D_FW2_1)  score++;
   if (flags & D_FW2_2)  score++;
+
+  if (flags & D_TIME)  score++;
+  if (flags & D_TNEG)  score+=2;
+
   if (flags & D_FAR)    score >>= 1;
+  if (flags & D_TIME)   if (score) score -=1;
 
   /* Avoid reporting a host multiple times if it already got reported
      with this or higher score, for as long as its entry lives in the
@@ -217,6 +236,6 @@ _s16 p0f_findmasq(_u32 sad,_u8* genre,_s8 dist,_u16 mss,
      recent entry. */
 
   if (pscore >= score) return 0;  
-  return score * 200 / 23;
+  return score * 200 / 25;
 
 }

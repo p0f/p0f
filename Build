@@ -19,7 +19,7 @@ echo "Your system type is: $SYSTEM"
 if [ ! -f mk/$SYSTEM ]; then
   echo
   echo "This system is not currently supported. You can try to compile the"
-  echo "program by trying one of the following systems:"
+  echo "program by trying one of the other supported options:"
   echo
   cd mk
   ls | cat

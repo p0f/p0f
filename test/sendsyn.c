@@ -1,19 +1,21 @@
 /*
-   sendack - RST trigger
-   ---------------------
+   sendsyn - SYN+ACK trigger
+   -------------------------
 
-   This is a trivial code to send a stray ACK packet to a remote
-   host. The main purpose of this is to gather new RST ("connection dropped") 
-   signatures quickly, but you can also use it for silent active 
-   fingerprinting when you can't or don't want to use -A mode.
+   This is a trivial code to send a SYN packet to a remote host. The main 
+   purpose of this is to trigger a clean SYN+ACK or RST+ACK ("connection
+   refused") response that can be compared to the signature you've obtained 
+   the usual way. By comparing WSS and other parameters, it is possible to 
+   determine how much of the signature changes depending on the initial SYN, 
+   which is crucial in some cases (see p0fa.fp and p0fr.fp).
 
-   THIS PROGRAM IS NOT SUITABLE FOR GATHERING "Connection refused" SIGNATURES.
+   THIS CODE IS NOT SUITABLE FOR GATHERING "Connection dropped" SIGNATURES.
 
-   Run p0f in the background in -R mode, then run sendack, observe
-   results, if any. This code uses a distinct WSS of 12345. If you see
-   it in the signature returned by p0f, you need to wildcard the value
-   (p0f does the first step for you), as it appears to be dependent on the 
-   original packet and may vary on the other party's stack.
+   Run p0f in the background in -A mode (or -R, if you are interested in
+   RST+ACK packet), then run sendsyn, observe results, if any. The code uses a 
+   distinct WSS of 12345. If you see it in the SYN+ACK (RST+ACK) response, you 
+   need to wildcard the WSS value in your new signature (p0f does the
+   first step for you).
 
    Linux code, may not work on systems that use different mechanism to
    access raw sockets.
@@ -61,7 +63,7 @@ static _u8 synpacket[] = {
   /* SEQ   */  0x0D, 0xEF, 0xAC, 0xED,
   /* ACK   */  0xDE, 0xAD, 0xBE, 0xEF,
   /* doff  */  0x50,
-  /* flags */  0x10,         /* just ACK */
+  /* flags */  0x02,         /* just SYN */
   /* wss   */  0x30, 0x39,   /* 12345 */
   /* cksum */  0x00, 0x00,
   /* urg   */  0x00, 0x00
@@ -127,7 +129,7 @@ int main(int argc, char** argv) {
   if (sendto(sock,synpacket,sizeof(synpacket), 0,(struct sockaddr *)&sain,
     sizeof(struct sockaddr)) < 0) perror("sendto");
   else 
-    printf("Stray ACK sent to %s to port %d.\n",argv[2],ntohs(p));
+    printf("Bland SYN sent to %s to port %d.\n",argv[2],ntohs(p));
 
   return 0;
   

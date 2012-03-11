@@ -12,6 +12,7 @@ LIBS	= -lpcap -I/usr/include/pcap -I/usr/local/include/pcap
 STRIP   = strip
 CFLAGS  = -O3 -Wall -fomit-frame-pointer -funroll-loops
 FILE	= p0f
+TOOLS   = test/sendack test/sendack2 test/sendsyn
 
 all: $(FILE) strip	
 	@echo ">> You can also try 'make p0fq' to compile a sample query"
@@ -30,11 +31,11 @@ strip:
 
 p0fq: test/p0fq
 
-sendack: test/sendack
+tools: $(TOOLS)
 
 clean:
 	rm -f core core.[0123456789]* *~ *.o $(FILE) a.out $(FILE)-static \
-	  test/p0fq test/sendack
+	  test/p0fq $(TOOLS)
 
 publish: clean
 	cd ..;tar cfvz /tmp/p0f.tgz p0f
@@ -47,3 +48,4 @@ install: $(FILE)
 	mkdir /etc/p0f || true
 	cp -f p0f.fp p0fa.fp p0fr.fp /etc/p0f/
 	cp -f p0f.1 /usr/man/man1/
+	@echo "You might want to manually install test/ tools now."

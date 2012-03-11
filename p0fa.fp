@@ -12,19 +12,29 @@
 # `-------------------------------------------------------------------------'
 #
 # (C) Copyright 2000-2003 by Michal Zalewski <lcamtuf@coredump.cx>
-# Plenty of signatures contributed by rain forest puppy <rfp@wiretrip.net>
+#
+# Plenty of signatures contributed in bulk by rain forest puppy, Paul Woo and
+# Michael Bauer.
 #
 # Submit all additions to the authors. Read p0f.fp before adding any
 # signatures. Run p0f -A -C after making any modifications. This file is
 # NOT compatible with SYN or RST+ modes. Use only with -A option.
 #
-# NOTE: Some systems would have different SYN+ACK fingerprints depending
-# on the system that sent SYN. More specifically, RFC1323, RFC2018 and
-# RFC1644 extensions sometimes show up only if SYN had them enabled.
-#
 # Feel like contributing? You can run p0f -A -K, then test/tryid -iR nnn...
 #
-# Differences in comparison to p0f.fp data:
+# IMPORTANT INFORMATION ABOUT THE INTERDEPENDENCY OF SYNs AND SYN+ACKs
+# --------------------------------------------------------------------
+#
+# Some systems would have different SYN+ACK fingerprints depending on
+# the system that sent SYN. More specifically, RFC1323, RFC2018 and
+# RFC1644 extensions sometimes show up only if SYN had them enabled.
+#
+# Also, some silly systems may copy WSS from the SYN packet you've sent,
+# in which case, you need to wildcard the value. Use test/sendsyn.c, which
+# uses a distinct WSS of 12345, to test for this condition if unsure.
+#
+# IMPORTANT INFORMATION ABOUT DIFFERENCES IN COMPARISON TO p0f.fp:
+# ----------------------------------------------------------------
 #
 # - 'A' quirk would be present on almost every signature here. ACK number
 #   is unusual for SYN packets, but is a commonplace in SYN+ACK packets,
@@ -57,6 +67,7 @@ S4:64:1:52:M*,N,N,S,N,W0:ZA:Linux:2.4 w/o timestamps
 # --------------- Windows ------------------
 
 65535:128:1:64:M*,N,W0,N,N,T0,N,N,S:A:Windows:2000 SP4
+S44:128:1:64:M*,N,W0,N,N,T0,N,N,S:A:Windows:XP SP1
 S12:128:1:64:M*,N,W0,N,N,T0,N,N,S:A:Windows:2000 (SP1+)
 S6:128:1:44:M*:A:Windows:NT 4.0 SP1+
 65535:128:1:48:M*,N,N,S:A:Windows:98 (SE)
@@ -64,6 +75,14 @@ S6:128:1:44:M*:A:Windows:NT 4.0 SP1+
 16616:128:1:44:M*:A:Windows:2003
 16384:128:1:44:M*:A:Windows:2000 (2)
 S16:128:1:44:M*:A:Windows:2000 (3)
+
+# ------------------- OpenBSD --------------
+
+17376:64:1:64:M*,N,N,S,N,W0,N,N,T:AT:OpenBSD:3.3
+
+# ------------------- NetBSD ----------------
+
+16384:64:0:60:M*,N,W0,N,N,T0:AT:NetBSD:1.6
 
 # ----------------- HP/UX ------------------
 
@@ -102,6 +121,9 @@ S1:255:1:60:N,N,T,N,W0,M*:AT:Solaris:7
 
 S17:255:1:44:M536:A:AIX:4.2
 
+S12:64:0:44:M1460:A:AIX:5.2 ML04 (1)
+S42:64:0:44:M1460:A:AIX:5.2 ML04 (2)
+
 # ------------------ BSD/OS ----------------
 
 S6:64:1:60:M1460,N,W0,N,N,T:AT:BSD/OS:4.0.x
@@ -109,6 +131,14 @@ S6:64:1:60:M1460,N,W0,N,N,T:AT:BSD/OS:4.0.x
 # ------------------ OS/390 ----------------
 
 2048:64:0:44:M1460:A:OS/390:?
+
+# ------------------ Novell ----------------
+
+6144:128:1:44:M1400:A:Novell:iChain 2.2
+
+# ------------------ MacOS -----------------
+
+33304:64:1:60:M*,N,W0,N,N,T:AT:MacOS:X 10.2.6
 
 ###########################################
 # Appliance / embedded / other signatures #
@@ -128,6 +158,9 @@ S16:64:0:44:M512:A:3Com:NBX PBX (BSD/OS 2.1)
 S2:64:0:44:M32728:A:D-Link:DSL-500
 S4:60:0:44:M1460:A:HP:JetDirect A.05.32
 8576:64:1:44:M*:A:Raptor:firewall
+S12:64:1:44:M1400:A:Cequrux Firewall:4.x
+2048:255:0:44:M1400:A:Netgear:MR814
+
 
 # Whatever they run. EOL boys...
 S6:128:1:48:M1460,E:PA:@Slashdot:or BusinessWeek (???)

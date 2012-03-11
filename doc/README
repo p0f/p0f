@@ -6,10 +6,12 @@
                     "Dr. Jekyll had something to Hyde"
 		    
                       passive OS fingerprinting tool
-                              version 2.0.2
+                              version 2.0.3
 
      (C) Copyright 2000 - 2003 by Michal Zalewski <lcamtuf@coredump.cx>
+
    Win32 port (C) Copyright 2003 by Michael A. Davis <mike@datanerds.net>
+                      and Kirby Kuehl <kkuehl@cisco.com>
 
       Portions contributed by numerous good people - see CREDITS file.
 
@@ -162,10 +164,15 @@
     - Unusual auxilinary flags,
     - Data payload in control packets [*],
     - SEQ number equal to ACK number [*],
+    - Zero SEQ number [*],
     - Non-empty IP options.
 
     [*] Metrics "invented" for p0f, as far as I know. Other metrics
     were discussed before, although usually not implemented anywhere.
+
+    As a matter of fact, some of the metrics were so precise I managed
+    to find several previously unknown TCP/IP stack bugs :-) See
+    doc/win-memleak.txt and p0fr.fp for more information.
 
   IMPROVEMENTS:
 
@@ -215,6 +222,8 @@
       many other bug-fixes and improvements of the packet parser
       (including some sanity checks).
 
+    - Fuzzy checks option when no precise matches are found (limited).
+
   Sadly, this will break all compatibility with v1 signatures, but it's
   well worth it.
 
@@ -226,7 +235,7 @@
   need to know most of them for normal operation:
 
   p0f [ -f file ] [ -i device ] [ -s file ] [ -o file ] [ -Q socket ]
-      [ -w file ] [ -u user ] [ -c size ] [ -T nn ] [ -NDVUKAMqxtpdlRL ] 
+      [ -w file ] [ -u user ] [ -c size ] [ -T nn ] [ -FNDVUKAXMqxtpdlRL ] 
       [ 'filter rule' ]
 
   -f file   - read fingerprints from file; by default, p0f reads
@@ -301,6 +310,10 @@
   -N        - do not report distances and link media. This option 
               logs only source IP and OS data.
 
+  -F        - deploy fuzzy matching algorithm if no precise matches are
+              found (currently applies to TTL only). This option is not
+              recommended for RST+ modes.
+
   -D        - do not report OS details (just genre). This option is useful
               if you don't want p0f to elaborate on OS versions and such.
 
@@ -356,12 +369,16 @@
               patible  with  -l and is intended for debugging and
               packet comparison only.
 
+  -X        - display packet payload; rarely, control packets we examine
+              may carry a payload. This is a bug for the default (SYN)
+              and -A (SYN+ACK) modes, but is (sometimes) acceptable in
+              -R (RST+) mode.
+
   -M        - deploy masuqerade detection algotihm. The algorithm looks over 
               recent (cached) hits and looks for indications of multiple 
               systems being behind a single gateway. This is useful on routers 
               and such to detect policy violations. Note that this mode is 
-              somewhat slower due to caching and lookups. This option is
-              Unix-only at the moment.
+              somewhat slower due to caching and lookups. 
 
   -T nn     - masquerade detection threshold; only meaningful with -M,
               sets the threshold for masquerade reporting.
@@ -468,10 +485,15 @@
     - Distance differences:
         +1 if host distance differs
 
+    - Timestamp scoring, if timestamps available:
+        -1 if timestamp delta within MAX_TIMEDIF (config.h)
+        +1 if timestamp delta past MAX_TIMEDIF
+        +2 if timestamp delta negative
+
     - Time from the previous occurence:
         /2 if more than half the cache size to the previous occurence
 
-  The final score is reported as score * 200 / 23 (23 being the highest
+  The final score is reported as score * 200 / 25 (25 being the highest
   score possible) and reported as a percentage.
 
   The higher the value, the more likely the result is accurate. Since
@@ -536,6 +558,9 @@
     xFW		- FW flags differ (same signature)
     NAT1, NAT2  - NAT flags set (different signatures)
     FW1, FW2	- FW flags set (different signatures)
+    FAST	- timestamp delta too high
+    TNEG        - timestamp delta negative
+    -time	- timestamp delta within the norm
     -far	- distant occurences
 
   Because the score is cummulative, it is possible to have exclusive
@@ -571,6 +596,12 @@
   identical configuration and network setup (which is very unlikely,
   even in a homogenous environment), or are never used at (roughly) the same 
   time.
+
+  NOTE: You can also try to combine -M with -A, which is only really
+  useful for detecting load balancers and other setups that map a single
+  address to several servers; or with -R, which can be used both for
+  detecting load balancers (RST) and normal incoming masquerade detection
+  (RST+ACK), although it's probably less reliable.
 
 ----------------------------------------
 7. Fingerprinting accuracy and precision
@@ -699,7 +730,9 @@
   Some packet firewalls configured to normalize outgoing traffic (OpenBSD pf 
   with "scrub" enabled, for example) will, well, normalize packets. Those
   signatures will not correspond to the originating system, and probably not 
-  quite to the firewall either. 
+  quite to the firewall either. Checkpoint firewall, in a fairly lame attempt
+  to defeat OS fingerprinting, tweaks IP ID and TTL on outgoing packets; if
+  you want to work around this problem, run p0f with -F option.
 
   In order to obtain the information required for fingerprinting, you have
   to receive at least one SYN packet initiating a TCP connection to your
@@ -826,6 +859,7 @@
   \[Name\]			- provider name identified as..., OR
   \[tos XX\]			- ToS set, but provider name not identified
   \[GENERIC\]			- signature is a generic one
+  \[FUZZY\]			- fuzzy match
   \*				- further details inhibited for this signature
   (up nnn hrs)			- system uptime
   (refused)			- RST+ mode: valid conn. refused packet
@@ -855,7 +889,15 @@
   properly. Link description is the name of the link type, or a special
   keyword "unspecified", or a special value "unknown-NNNN". 
 
+  The next line is present if -X mode is enabled and the packet has
+  a payload. The line has the following format:
+
+    # Payload: "...printable text..."
+
+  Maximum length of the text to report is defined in config.h (PKT_MAXPAY).
+
   In -l mode, all line breaks are inhibited.
+
 
   If -x is enabled (not compatible with -l), the subsequent lines are in 
   this format:
@@ -872,17 +914,46 @@
 14. Links to OS fingerprinting resources
 ----------------------------------------
 
-  http://www.sys-security.com/html/papers.html
-  http://project.honeynet.org/papers/finger/
-  http://www.siteware.ch/webresources/useragents/db.html
-  http://www.linuxjournal.com/article.php?sid=4750
-  http://ettercap.sourceforge.net/
-  http://www.securiteam.com/securitynews/5NP0C153PI.html
-  http://www.securitybugware.org/mUNIXes/4680.html
-  http://www.cgisecurity.net/papers/fingerprinting-2.txt
-  http://www.team-teso.net/data/ldistfp-auth-fingerprints
-  http://www.team-teso.net/releases.php
+  Recommended RFC reading:
 
-  http://lcamtuf.coredump.cx/p0f.shtml
-	
+    http://www.faqs.org/rfcs/rfc793.html  - TCP/IP specification
+    http://www.faqs.org/rfcs/rfc1122.html - TCP/IP tutorial
+    http://www.faqs.org/rfcs/rfc1323.html - performance extensions
+    http://www.faqs.org/rfcs/rfc1644.html - T/TCP extensions
+    http://www.faqs.org/rfcs/rfc2018.html - TCP/IP selective ACK
+
+  Practical information:
+
+    Active ICMP fingerprinting:
+    http://www.sys-security.com/html/papers.html
+
+    Passive OS fingerprinting basics:
+    http://project.honeynet.org/papers/finger/
+    http://www.linuxjournal.com/article.php?sid=4750
+
+    THC Amap, application fingerprinting:
+    http://www.thc.org/releases.php
+
+    Hmap, web server fingerprinting:
+    http://wwwcsif.cs.ucdavis.edu/~leed/hmap/
+
+    Fyodor's NMAP, the active fingerprinter:
+    http://www.nmap.org
+
+    User-Agent information:
+    http://www.siteware.ch/webresources/useragents/db.html
+
+    Ident fingerprinting:
+    http://www.team-teso.net/data/ldistfp-auth-fingerprints
+
+  Other free tools known to have passive OS fingerprinting:
+
+    http://ettercap.sourceforge.net/ - Ettercap (p0f v1)
+    http://prelude-ids.org - Prelude IDS (p0f v1)
+    http://www.w4g.org/fingerprinting.html - OpenBSD pf (p0f v2.0.1)
+
+    http://www.raisdorf.net/projects/pfprintd - pfprintd
+    http://siphon.datanerds.net - Siphon (very out of date)
+    http://members.fortunecity.com/sektorsecurity/projects/archaeopteryx.html (Siphon w/GUI)
+    
 

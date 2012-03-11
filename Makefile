@@ -22,7 +22,7 @@ publish:
 p0fq:
 	./Build $@
 
-sendack:
+tools:
 	./Build $@
 
 install:

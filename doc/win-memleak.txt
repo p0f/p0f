@@ -1,48 +1,12 @@
 
-Date: Wed, 17 Sep 2003 11:17:16 +0200 (CEST)
-From: Michal Zalewski <lcamtuf@dione.ids.pl>
-To: bugtraq@securityfocus.com, vulnwatch@vulnwatch.org
-Cc: full-disclosure@netsys.com
-Subject: Windows URG mystery solved!
+  Topic: Windows setting URG value on certain SYN and RST packets
+  Status: SOLVED
 
+  This is a description of a mysterious Windows URG problem I've noticed
+  a while ago, while working on p0f. It turned out to be memory leak,
+  and Microsoft have acknowledged the problem.
 
-I finally have more details about the Windows URG pointer memory leak,
-first reported here:
-
-  http://www.securityfocus.com/archive/82/335845/2003-08-31/2003-09-06/0
-
-It is a vulnerability.
-
-After a long and daunting hunt, I have determined that pretty much all
-up-to-date Windows 2000 and XP systems are vulnerable to the problem, and
-that it is not caused by any network devices en route or such, but the
-issue is present only in certain conditions.
-
-I have initially reported I see a minority population of systems
-exhibiting this pattern. It turns out the majority of population is
-vulnerable, simply not exhibiting this behavior all the time.
-
-It is exhibited whenever a data transfer is occuring at the time the
-initial SYN is sent. The URG value would often contain a random piece of
-a packet (frequently data) belonging to the other connection.
-
-This happens during regular browsing, and will also be triggered by
-background downloads, etc.
-
-I do not want to exaggerate the impact of this vulnerability, the amount
-of data disclosed is fairly low, but it's still quite cool.
-
-Cheers,
---
-------------------------- bash$ :(){ :|:&};: --
- Michal Zalewski * [http://lcamtuf.coredump.cx]
-    Did you know that clones never use mirrors?
---------------------------- 2003-09-17 10:44 --
-
-
-
-
-
+---- FIRST MAIL ----
 
 Date: Tue, 2 Sep 2003 14:09:08 +0200 (CEST)
 From: Michal Zalewski <lcamtuf@coredump.cx>
@@ -113,4 +77,53 @@ Thanks,
  Michal Zalewski * [http://lcamtuf.coredump.cx]
     Did you know that clones never use mirrors?
 --------------------------- 2003-09-02 13:26 --
+
+
+
+---- SECOND MAIL ----
+
+Date: Wed, 17 Sep 2003 11:17:16 +0200 (CEST)
+From: Michal Zalewski <lcamtuf@dione.ids.pl>
+To: bugtraq@securityfocus.com, vulnwatch@vulnwatch.org
+Cc: full-disclosure@netsys.com
+Subject: Windows URG mystery solved!
+
+
+I finally have more details about the Windows URG pointer memory leak,
+first reported here:
+
+  http://www.securityfocus.com/archive/82/335845/2003-08-31/2003-09-06/0
+
+It is a vulnerability.
+
+After a long and daunting hunt, I have determined that pretty much all
+up-to-date Windows 2000 and XP systems are vulnerable to the problem, and
+that it is not caused by any network devices en route or such, but the
+issue is present only in certain conditions.
+
+I have initially reported I see a minority population of systems
+exhibiting this pattern. It turns out the majority of population is
+vulnerable, simply not exhibiting this behavior all the time.
+
+It is exhibited whenever a data transfer is occuring at the time the
+initial SYN is sent. The URG value would often contain a random piece of
+a packet (frequently data) belonging to the other connection.
+
+This happens during regular browsing, and will also be triggered by
+background downloads, etc.
+
+I do not want to exaggerate the impact of this vulnerability, the amount
+of data disclosed is fairly low, but it's still quite cool.
+
+Cheers,
+--
+------------------------- bash$ :(){ :|:&};: --
+ Michal Zalewski * [http://lcamtuf.coredump.cx]
+    Did you know that clones never use mirrors?
+--------------------------- 2003-09-17 10:44 --
+
+
+
+
+
 
