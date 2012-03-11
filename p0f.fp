@@ -249,6 +249,9 @@ sig   = *:64:0:*:16384,3:mss,nop,nop,sok,nop,ws,nop,nop,ts:df,id+:0
 ; Solaris
 ; -------
 
+label = s:unix:Solaris:8
+sig   = *:64:0:*:32850,1:nop,ws,nop,nop,ts,nop,nop,sok,mss:df,id+:0
+
 label = s:unix:Solaris:10
 sig   = *:64:0:*:mss*34,0:mss,nop,ws,nop,nop,sok:df,id+:0
 
@@ -430,12 +433,27 @@ sig   = *:64:0:*:65535,0:mss,sok,ts:df,id+:0
 sig   = *:64:0:*:65535,0:mss,sok,eol+1:df,id+:0
 sig   = *:64:0:*:65535,0:mss,nop,nop,ts:df,id+:0
 
+; -------
+; OpenBSD
+; -------
+
+label = s:unix:OpenBSD:5.x
+sig   = *:64:0:1460:16384,0:mss,nop,nop,sok:df,id+:0
+sig   = *:64:0:1460:16384,3:mss,nop,ws:df,id+:0
+sig   = *:64:0:1460:16384,3:mss,nop,nop,sok,nop,ws:df,id+:0
+sig   = *:64:0:1460:16384,0:mss,nop,nop,ts:df,id+:0
+sig   = *:64:0:1460:16384,0:mss,nop,nop,sok,nop,nop,ts:df,id+:0
+sig   = *:64:0:1460:16384,3:mss,nop,ws,nop,nop,ts:df,id+:0
+sig   = *:64:0:1460:16384,3:mss,nop,nop,sok,nop,ws,nop,nop,ts:df,id+:0
+
+; This one resembles Windows, but almost nobody will be seeing it:
+; sig   = *:64:0:1460:16384,0:mss:df,id+:0
+
 ; --------
 ; Mac OS X
 ; --------
 
 label = s:unix:Mac OS X:10.x
-sig   = *:64:0:*:65535,0:mss:df,id+:0
 sig   = *:64:0:*:65535,0:mss,nop,ws:df,id+:0
 sig   = *:64:0:*:65535,0:mss,sok,eol+1:df,id+:0
 sig   = *:64:0:*:65535,0:mss,nop,nop,ts:df,id+:0
@@ -443,6 +461,9 @@ sig   = *:64:0:*:65535,0:mss,nop,ws,sok,eol+1:df,id+:0
 sig   = *:64:0:*:65535,0:mss,nop,ws,nop,nop,ts:df,id+:0
 sig   = *:64:0:*:65535,0:mss,nop,nop,ts,sok,eol+1:df,id+:0
 sig   = *:64:0:*:65535,0:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
+
+; Ditto:
+; sig   = *:64:0:*:65535,0:mss:df,id+:0
 
 ; -------
 ; Solaris
@@ -508,9 +529,17 @@ sig   = 4:64:0:1460:mss*25,0:mss:df,id+:0
 ; HTTP client signatures
 ; ======================
 
+; Safari and Firefox are frequently seen using HTTP/1.0 when going through
+; proxies; this is far less common for MSIE, Chrome, etc. I wildcarded some of
+; the signatures accordingly.
+;
+; Also note that there are several proxies that mess with HTTP headers for no
+; reason. For example, BlueCoat proxy appears to change 'keep-alive' to
+; 'Keep-Alive' for a tiny percentage of users (why?!).
+
 [http:request]
 
-ua_os = Linux,Windows,iOS=[iPad],iOS=[iPhone],Mac OS X,FreeBSD,OpenBSD,NetBSD
+ua_os = Linux,Windows,iOS=[iPad],iOS=[iPhone],Mac OS X,FreeBSD,OpenBSD,NetBSD,Solaris=[SunOS]
 
 ; -------
 ; Firefox
@@ -518,36 +547,38 @@ ua_os = Linux,Windows,iOS=[iPad],iOS=[iPhone],Mac OS X,FreeBSD,OpenBSD,NetBSD
 
 label = s:!:Firefox:2.x
 sys   = Windows,@unix
-sig   = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip,deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],Keep-Alive=[300],Connection=[keep-alive]::Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip,deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],Keep-Alive=[300],Connection=[keep-alive]::Firefox/
 
 label = s:!:Firefox:3.x
 sys   = Windows,@unix
-sig   = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip,deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],Keep-Alive=[115],Connection=[keep-alive],?Referer::Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip,deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],Keep-Alive=[115],Connection=[keep-alive],?Referer::Firefox/
 
 label = s:!:Firefox:4.x
 sys   = Windows,@unix
-sig   = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],Keep-Alive=[115],Connection=[keep-alive],?Referer::Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],Keep-Alive=[115],Connection=[keep-alive],?Referer::Firefox/
 
 ; I have no idea where this 'UTF-8' variant comes from, but it happens on *BSD.
 ; Likewise, no clue why Referer is in a different place for some users.
 
 label = s:!:Firefox:5.x-9.x
 sys   = Windows,@unix
-sig   = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],?DNT=[1],Connection=[keep-alive],?Referer:Keep-Alive:Firefox/
-sig   = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[UTF-8,*],?DNT=[1],Connection=[keep-alive],?Referer:Keep-Alive:Firefox/
-sig   = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],?DNT=[1],?Referer,Connection=[keep-alive]::Firefox/
-sig   = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],?Referer,?DNT=[1],Connection=[keep-alive]::Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],?DNT=[1],Connection=[keep-alive],?Referer:Keep-Alive:Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[UTF-8,*],?DNT=[1],Connection=[keep-alive],?Referer:Keep-Alive:Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[UTF-8,*],?DNT=[1],?Referer,Connection=[keep-alive]:Keep-Alive:Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],?DNT=[1],?Referer,Connection=[keep-alive]:Keep-Alive:Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],?Referer,?DNT=[1],Connection=[keep-alive]:Keep-Alive:Firefox/
 
 label = s:!:Firefox:10.x or newer
 sys   = Windows,@unix
-sig   = 1:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset:Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/
+sig   = *:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],?Referer,Connection=[keep-alive]:Accept-Charset,Keep-Alive:Firefox/
 
 ; There is this one weird case where Firefox 10.x is indistinguishable
 ; from Safari 5.1:
 
 label = s:!:Firefox:10.x or Safari 5.x
 sys   = Windows,@unix
-sig   = 1:Host,User-Agent,Accept=[xml;q=0.9,*/*;q=0.8],Accept-Language,Accept-Encoding=[gzip, deflate],Connection=[keep-alive]:Accept-Charset,DNT,Referer:Gecko
+sig   = *:Host,User-Agent,Accept=[xml;q=0.9,*/*;q=0.8],Accept-Language,Accept-Encoding=[gzip, deflate],Connection=[keep-alive]:Keep-Alive,Accept-Charset,DNT,Referer:Gecko
 
 ; ----
 ; MSIE
@@ -555,19 +586,19 @@ sig   = 1:Host,User-Agent,Accept=[xml;q=0.9,*/*;q=0.8],Accept-Language,Accept-En
 
 label = s:!:MSIE:8 or newer
 sys   = Windows
-sig   = 1:Accept=[*/*],?Referer,?Accept-Language,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Accept-Charset,UA-CPU:(compatible; MSIE
-sig   = 1:Accept=[*/*],?Referer,?Accept-Language,Accept-Encoding=[gzip, deflate],User-Agent,Host,Connection=[Keep-Alive]:Accept-Charset:(compatible; MSIE
+sig   = 1:Accept=[*/*],?Referer,?Accept-Language,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset,UA-CPU:(compatible; MSIE
+sig   = 1:Accept=[*/*],?Referer,?Accept-Language,Accept-Encoding=[gzip, deflate],User-Agent,Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset:(compatible; MSIE
 
 label = s:!:MSIE:7
 sys   = Windows
-sig   = 1:Accept=[*/*],?Referer,?Accept-Language,UA-CPU,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Accept-Charset:(compatible; MSIE
+sig   = 1:Accept=[*/*],?Referer,?Accept-Language,UA-CPU,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset:(compatible; MSIE
 
 ; TODO: Check if this one ever uses Accept-Language, etc. Also try to find MSIE 5.
 
 label = s:!:MSIE:6
 sys   = Windows
-sig   = 0:Accept=[*/*],?Referer,User-Agent,Host:Connection,Accept-Encoding,Accept-Language,Accept-Charset:(compatible; MSIE
-sig   = 1:Accept=[*/*],Connection=[Keep-Alive],Host,?Pragma=[no-cache],?Range,?Referer,User-Agent:Accept-Encoding,Accept-Language,Accept-Charset:(compatible; MSIE
+sig   = 0:Accept=[*/*],?Referer,User-Agent,Host:Keep-Alive,Connection,Accept-Encoding,Accept-Language,Accept-Charset:(compatible; MSIE
+sig   = 1:Accept=[*/*],Connection=[Keep-Alive],Host,?Pragma=[no-cache],?Range,?Referer,User-Agent:Keep-Alive,Accept-Encoding,Accept-Language,Accept-Charset:(compatible; MSIE
 
 ; ------
 ; Chrome
@@ -577,7 +608,7 @@ label = s:!:Chrome:11 or newer
 sys   = Windows,@unix
 sig   = 1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3]:: Chrom
 sig   = 1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[UTF-8,*;q=0.5]:: Chrom
-sig   = 1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3],Connection=[keep-alive]::Chrom
+sig   = 1:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3],Connection=[keep-alive]::Chrom
 
 ; -----
 ; Opera
@@ -620,8 +651,8 @@ sig   = 1:Host,Connection=[keep-alive],Accept=[,*/*;q=0.8],User-Agent,Accept-Enc
 
 label = s:!:Safari:5.1 or newer
 sys   = Windows,@unix
-sig   = 1:Host,User-Agent,Accept=[*/*],?Referer,Accept-Language,Accept-Encoding=[gzip, deflate],Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)
-sig   = 1:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip, deflate],Accept-Language,Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)
+sig   = *:Host,User-Agent,Accept=[*/*],?Referer,Accept-Language,Accept-Encoding=[gzip, deflate],Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)
+sig   = *:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip, deflate],Accept-Language,Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)
 
 label = s:!:Safari:5.0 or earlier
 sys   = Mac OS X
@@ -638,7 +669,6 @@ sig   = 1:Host,Connection=[Keep-Alive],User-Agent,?Pragma,?Cache-control,Accept=
 label = s:!:Konqueror:4.7 or newer
 sys   = Linux,FreeBSD,OpenBSD
 sig   = 1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],Accept-Encoding=[gzip, deflate, x-gzip, x-deflate],Accept-Charset=[,*;q=0.5],Accept-Language::Konqueror/
-
 
 ; -------------------
 ; Major search robots
@@ -755,6 +785,10 @@ sys   = @unix,Windows
 sig   = 1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip, deflate, bzip2],Accept-Charset=[us-ascii],Accept-Language=[;q=0.1],Connection=[Keep-Alive]::Links
 sig   = 1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip,deflate,bzip2],Accept-Charset=[us-ascii],Accept-Language=[;q=0.1],Connection=[keep-alive]::Links
 
+label = s:!:elinks:
+sys   = @unix,Windows
+sig   = 1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[bzip2, deflate, gzip],Accept-Language:Connection,Accept-Charset:ELinks/
+
 label = s:!:Java:JRE
 sys   = @unix,@win
 sig   = 1:User-Agent,Host,Accept=[*; q=.2, */*; q=.2],Connection=[keep-alive]:Accept-Encoding,Accept-Language,Accept-Charset:Java/
@@ -790,6 +824,14 @@ sig   = 1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip]:Connection,Accept-
 label = s:!:Google Desktop:
 sys   = Windows
 sig   = 1:Accept=[*/*],Accept-Encoding=[gzip],User-Agent,Host,Connection=[Keep-Alive]:Accept-Language,Accept-Charset:Google Desktop/
+
+label = s:!:luakit:
+sys   = @unix
+sig   = 1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip],Connection=[Keep-Alive]:Accept-Language,Accept-Charset:luakit
+
+label = s:!:Epiphany:
+sys   = @unix
+sig   = 1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip],Accept-Language:Connection,Accept-Charset,Keep-Alive:Epiphany/
 
 ; ======================
 ; HTTP server signatures
@@ -828,7 +870,14 @@ sig   = 1:?Content-Length,Content-Type,?Etag,Server,Date,Connection=[close]:Keep
 
 label = s:!:lighttpd:2.x
 sys   = @unix
-sig   = 1:?ETag,?Last-Modified,Accept-Ranges=[bytes],Content-Type,?Vary,?Content-Length,Date,Server:Connection,Keep-Alive:lighttpd/2.0.0
+sig   = 1:?ETag,?Last-Modified,Accept-Ranges=[bytes],Content-Type,?Vary,?Content-Length,Date,Server:Connection,Keep-Alive:lighttpd/
+sig   = 1:?ETag,?Last-Modified,Transfer-Encoding=[chunked],Content-Type,?Vary,?Content-Length,Date,Server:Connection,Keep-Alive:lighttpd/
+
+label = s:!:lighttpd:1.x
+sys   = @unix
+sig   = 1:Content-Type,Accept-Ranges=[bytes],?ETag,?Last-Modified,Date,Server:Connection,Keep-Alive:lighttpd/
+sig   = 1:Content-Type,Transfer-Encoding=[chunked],?ETag,?Last-Modified,Date,Server:Connection,Keep-Alive:lighttpd/
+sig   = 0:Content-Type,Content-Length,Connection=[close],Date,Server:Keep-Alive,Accept-Ranges:lighttpd/
 
 ; -----
 ; nginx
@@ -838,6 +887,11 @@ label = s:!:nginx:1.x
 sys   = @unix
 sig   = 1:Server,Date,Content-Type,?Content-Length,?Last-Modified,Connection=[keep-alive],Keep-Alive=[timeout],Accept-Ranges=[bytes]::nginx/
 sig   = 1:Server,Date,Content-Type,?Content-Length,?Last-Modified,Connection=[close]:Keep-Alive,Accept-Ranges:nginx/
+
+label = s:!:nginx:0.x
+sys   = @unix
+sig   = 1:Server,Date,Content-Type,?Content-Length,Connection=[keep-alive],?Last-Modified:Keep-Alive,Accept-Ranges:nginx/
+sig   = 1:Server,Date,Content-Type,?Content-Length,Connection=[close],?Last-Modified:Keep-Alive,Accept-Ranges:nginx/
 
 ; -------------
 ; Odds and ends

@@ -236,6 +236,7 @@ static struct http_id req_common[] = {
   { "Accept-Encoding", 0 },
   { "Accept-Language", 0 },
   { "Accept-Charset", 0 },
+  { "Keep-Alive", 0 },
   { 0, 0 }
 };
 

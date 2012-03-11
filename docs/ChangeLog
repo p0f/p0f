@@ -1,5 +1,16 @@
-Version 3.01b:
+Version 3.02b:
 --------------
+
+Bug fixes:
+
+  - Cygwin compile issue fixed.
+
+Improvements:
+
+  - New signatures.
+
+Version 3.01b (2012-01-17):
+---------------------------
 
 Bug fixes:
 
@@ -11,8 +22,10 @@ Improvements:
 
   - New signatures.
 
-Version 3.00b:
---------------
+  - Solaris support (in theory).
+
+Version 3.00b (2012-01-17):
+---------------------------
 
 Bug fixes:
 
@@ -43,7 +56,7 @@ Improvements:
 
   - Delay added to p0f-sendsyn to aid with packet ordering.
 
-Version 3.00-rc0:
------------------
+Version 3.00-rc0 (2012-01-10):
+------------------------------
 
-  - Initial public release.
+  - Initial public release, complete rewrite.

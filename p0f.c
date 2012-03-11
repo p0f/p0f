@@ -949,6 +949,9 @@ poll_again:
 
   }
 
+  ck_free(ctable);
+  ck_free(pfds);
+
 #else
 
   if (!daemon_mode) 
@@ -973,9 +976,6 @@ poll_again:
 #endif /* ^!__CYGWIN__ */
 
   WARN("User-initiated shutdown.");
-
-  ck_free(ctable);
-  ck_free(pfds);
 
 }
 
