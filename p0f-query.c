@@ -10,7 +10,7 @@
    OPTIMIZE THIS CODE. It blows. At the very least, fill out genre, detail, 
    ToS and link type on lookup.
 
-   Copyright (C) 2003-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+   Copyright (C) 2003-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 
 */
 

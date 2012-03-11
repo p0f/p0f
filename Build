@@ -6,13 +6,14 @@
 # This script determines OS name and checks for the appropriate
 # makefile in mk/.
 #
-# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 
 
 SYSTEM=`uname -s 2>/dev/null`
 
 test "$SYSTEM" = "" && SYSTEM="unknown"
+test -f /lib/libcygwin.a && SYSTEM=CYGWIN
 
 echo "Your system type is: $SYSTEM"
 
@@ -32,6 +33,14 @@ if [ ! -f mk/$SYSTEM ]; then
 fi
 
 GMAKE_OK=`which gmake 2>/dev/null`
+
+USE_BPF="pcap-bpf.h"
+
+if [ ! -f "/usr/include/$USE_BPF" -a ! -f "/usr/local/include/$USE_BPF" ]; then
+  USE_BPF="net/bpf.h"
+fi
+
+export USE_BPF
 
 echo
 echo "Please help with p0f 2:"

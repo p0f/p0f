@@ -6,7 +6,7 @@
   "If you sit down at a poker game and don't see a sucker, 
   get up. You're the sucker."
 
-  (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+  (C) Copyright 2000-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 
   WIN32 port (C) Copyright 2003-2004 by Michael A. Davis <mike@datanerds.net>
              (C) Copyright 2003-2004 by Kirby Kuehl <kkuehl@cisco.com>
@@ -36,7 +36,12 @@
 #include <pcap.h>
 #include <signal.h>
 
-#include <net/bpf.h>
+#ifdef USE_BPF
+#include USE_BPF
+#else
+#include <pcap-bpf.h>
+#endif /* ^USE_BPF */
+
 #include <time.h>
 #include <ctype.h>
 
@@ -1099,6 +1104,7 @@ continue_fuzzy:
                             tstamp ? tstamp / 360000 : -1);
      a=(_u8*)&src;
      if (sc > masq_thres) {
+       if (add_timestamp) put_date(pts);
        printf(">> Masquerade at %u.%u.%u.%u%s: indicators at %d%%.",
               a[0],a[1],a[2],a[3],grab_name(a),sc);
        if (!mode_oneline) putchar('\n'); else printf(" -- ");
@@ -1614,13 +1620,13 @@ int main(int argc,char** argv) {
   load_config(config_file);
 
   if (argv[optind] && *(argv[optind])) {
-    sprintf(buf,"(%s) and (%3000s)",use_rule,argv[optind]);
+    sprintf(buf,"(%s) and (%.3000s)",use_rule,argv[optind]);
     use_rule = buf;
   } 
 
   if (use_vlan) {
     _u8* x = strdup(use_rule);
-    sprintf(buf,"(%1000s) or (vlan and (%1000s))",x,x);
+    sprintf(buf,"(%.1000s) or (vlan and (%.1000s))",x,x);
     free(x);
     use_rule = buf;
   }
@@ -1739,6 +1745,7 @@ int main(int argc,char** argv) {
 #ifndef WIN32
     _s32 f;
     struct timeval tv;
+    FILE* pid_fd;
     fflush(0);
     f = fork();
     if (f<0) pfatal("fork() failed");
@@ -1748,6 +1755,12 @@ int main(int argc,char** argv) {
     chdir("/");
     setsid();
     signal(SIGHUP,SIG_IGN);
+    
+    if ((pid_fd = fopen(PID_PATH, "w"))) {
+      fprintf(pid_fd, "%d", getpid());
+      fclose(pid_fd);
+    }
+    
     printf("--- p0f " VER " resuming operations at ");
     gettimeofday(&tv, (struct timezone*)0);
     put_date(tv);

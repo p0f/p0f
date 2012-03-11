@@ -11,7 +11,7 @@
 # | add new signatures.                                                     |
 # `-------------------------------------------------------------------------'
 #
-# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 # Each line in this file specifies a single fingerprint. Please read the
 # information below carefully before attempting to append any signatures
@@ -375,13 +375,19 @@ S4:64:1:60:M1360,S,T,N,W0:.:Linux:2.4 (Google crawlbot)
 
 S2:64:1:60:M*,S,T,N,W0:.:Linux:2.4 (big boy)
 S3:64:1:60:M*,S,T,N,W0:.:Linux:2.4.18 and newer
-S4:64:1:60:M*,S,T,N,W0:.:Linux:2.4/2.6 <= 2.6.7
+S4:64:1:60:M*,S,T,N,W0:.:Linux:2.4/2.6
 S4:64:1:60:M*,S,T,N,W7:.:Linux:2.6.8 and newer (?)
 
-S3:64:1:60:M*,S,T,N,W1:.:Linux:2.5 (sometimes 2.4) (1)
-S4:64:1:60:M*,S,T,N,W1:.:Linux:2.5/2.6 (sometimes 2.4) (2)
-S3:64:1:60:M*,S,T,N,W2:.:Linux:2.5 (sometimes 2.4) (3)
-S4:64:1:60:M*,S,T,N,W2:.:Linux:2.5 (sometimes 2.4) (4)
+S3:64:1:60:M*,S,T,N,W1:.:Linux:2.5/2.6 (seldom 2.4) (1)
+S4:64:1:60:M*,S,T,N,W1:.:Linux:2.5/2.6 (seldom 2.4) (2)
+S3:64:1:60:M*,S,T,N,W2:.:Linux:2.5/2.6 (seldom 2.4) (3)
+S4:64:1:60:M*,S,T,N,W2:.:Linux:2.5/2.6 (seldom 2.4) (4)
+
+S4:64:1:52:M*,N,N,S,N,W2:.:Linux:2.6.11 and newer (1)
+T4:64:1:60:M*,S,T,N,W2:.:Linux:2.6.11 and newer (2)
+T4:64:1:60:M*,S,T,N,W7:.:Linux:2.6.11 and newer (bloat) (3)
+32767:64:1:60:M16396,S,T,N,W2:.:Linux:2.6.11 and newer (loopback)
+S4:64:1:44:M*:.:Linux:2.6.11 and newer (4)
 
 S20:64:1:60:M*,S,T,N,W0:.:Linux:2.2.20 and newer
 S22:64:1:60:M*,S,T,N,W0:.:Linux:2.2 (1)
@@ -421,12 +427,14 @@ S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
 57344:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.6-4.9
 
 32768:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.8-5.1 (or MacOS X 10.2-10.3)
-65535:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.7-5.2 (or MacOS X 10.2-10.3) (1)
-65535:64:1:60:M*,N,W1,N,N,T:.:FreeBSD:4.7-5.2 (or MacOS X 10.2-10.3) (2)
+65535:64:1:60:M*,N,W0,N,N,T:.:FreeBSD:4.7-5.2 (or MacOS X 10.2-10.4) (1)
+65535:64:1:60:M*,N,W1,N,N,T:.:FreeBSD:4.7-5.2 (or MacOS X 10.2-10.4) (2)
 
 65535:64:1:60:M*,N,W0,N,N,T:Z:FreeBSD:5.1-current (1)
 65535:64:1:60:M*,N,W1,N,N,T:Z:FreeBSD:5.1-current (2)
 65535:64:1:60:M*,N,W2,N,N,T:Z:FreeBSD:5.1-current (3)
+65535:64:1:64:M*,N,N,S,N,W1,N,N,T:.:FreeBSD:5.3-5.4
+65535:64:1:64:M*,N,W1,N,N,T,S,E:P:FreeBSD:6-current
 
 65535:64:1:44:M*:Z:FreeBSD:5.2 (no RFC1323)
 
@@ -439,14 +447,16 @@ S22:64:1:52:M*,N,N,S,N,W0:.:Linux:2.2 w/o timestamps
 16384:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6
 65535:64:1:60:M*,N,W1,N,N,T0:.:NetBSD:1.6W-current (DF)
 65535:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6X (DF)
-32768:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6Z (DF)
+32768:64:1:60:M*,N,W0,N,N,T0:.:NetBSD:1.6Z or 2.0 (DF)
+32768:64:1:64:M1416,N,W0,S,N,N,N,N,T0:.:NetBSD:2.0G (DF)
 
 # ----------------- OpenBSD -----------------
 
-16384:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.4
+16384:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.7
 57344:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.3-3.4
 16384:64:0:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.0-3.4 (scrub)
 65535:64:1:64:M*,N,N,S,N,W0,N,N,T:.:-OpenBSD:3.0-3.4 (Opera)
+32768:64:1:64:M*,N,N,S,N,W0,N,N,T:.:OpenBSD:3.7
 
 # ----------------- Solaris -----------------
 
@@ -460,12 +470,14 @@ S17:255:1:44:M*:.:Solaris:2.5 to 7
 S6:255:1:44:M*:.:Solaris:2.5-7
 S23:64:1:48:N,N,S,M*:.:Solaris:8 (2)
 S34:64:1:48:M*,N,N,S:.:Solaris:9
+S34:64:1:48:M*,N,N,N,N:.:Solaris:9 (no sack)
 S44:255:1:44:M*:.:Solaris:7
 
 4096:64:0:44:M1460:.:SunOS:4.1.x
 
 S34:64:1:52:M*,N,W0,N,N,S:.:Solaris:10 (beta)
 32850:64:1:64:M*,N,N,T,N,W1,N,N,S:.:Solaris:10 1203
+32850:64:1:64:M*,N,W1,N,N,T,N,N,S:.:Solaris:9.1
 
 # ----------------- IRIX --------------------
 
@@ -550,17 +562,17 @@ T31:128:1:44:M1414:.:Windows:NT 4.0 SP6a (1)
 # either dubious or non-specific (no service pack data)
 # were deleted and replaced with generics at the end.
 
-65535:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP1
-%8192:128:1:48:M*,N,N,S:.:Windows:2000 SP2+, XP SP1 (seldom 98 4.10.2222)
+65535:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP1+
+%8192:128:1:48:M*,N,N,S:.:Windows:2000 SP2+, XP SP1+ (seldom 98 4.10.2222)
 S20:128:1:48:M*,N,N,S:.:Windows:SP3
-S45:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP 1 (2)
+S45:128:1:48:M*,N,N,S:.:Windows:2000 SP4, XP SP1+ (2)
 40320:128:1:48:M*,N,N,S:.:Windows:2000 SP4
 
 S6:128:1:48:M*,N,N,S:.:Windows:XP, 2000 SP2+
-S12:128:1:48:M*,N,N,S:.:Windows:XP SP1 (1)
-S44:128:1:48:M*,N,N,S:.:Windows:XP Pro SP1, 2000 SP3
-64512:128:1:48:M*,N,N,S:.:Windows:XP SP1, 2000 SP3 (2)
-32767:128:1:48:M*,N,N,S:.:Windows:XP SP1, 2000 SP4 (3)
+S12:128:1:48:M*,N,N,S:.:Windows:XP SP1+ (1)
+S44:128:1:48:M*,N,N,S:.:Windows:XP SP1+, 2000 SP3
+64512:128:1:48:M*,N,N,S:.:Windows:XP SP1+, 2000 SP3 (2)
+32767:128:1:48:M*,N,N,S:.:Windows:XP SP1+, 2000 SP4 (3)
 
 # Odds, ends, mods:
 
@@ -571,6 +583,11 @@ S52:128:1:48:M1260,N,N,S:.:Windows:XP/2000 via Cisco
 44620:64:0:48:M*,N,N,S:.:Windows:ME no SP (?)
 S6:255:1:48:M536,N,N,S:.:Windows:95 winsock 2
 32768:32:1:52:M1460,N,W0,N,N,S:.:Windows:2003 AS
+65535:64:1:52:M1460,N,W2,N,N,S:.:Windows:2003 (1)
+65535:64:1:48:M1460,N,N,S:.:Windows:2003 (2)
+32000:128:0:48:M*,N,N,S:.:Windows:XP w/Winroute?
+16384:64:1:48:M1452,N,N,S:.:Windows:XP w/Sygate? (1)
+17256:64:1:48:M1460,N,N,S:.:Windows:XP w/Sygate? (2)
 
 # No need to be more specific, it passes:
 *:128:1:48:M*,N,N,S:U:-Windows:XP/2000 while downloading (leak!)
@@ -622,6 +639,7 @@ S4:64:0:44:M1024:.:NeXTSTEP:3.3 (2)
 # ------------------- QNX -------------------
 
 S16:64:0:44:M512:.:QNX:demodisk
+16384:64:0:60:M1460,N,W0,N,N,T0:.:QNX:6.x
 
 # ------------------ Novell -----------------
 
@@ -635,13 +653,14 @@ S16:64:0:44:M512:.:QNX:demodisk
 # -------------- SCO UnixWare ---------------
 
 S3:64:1:60:M1460,N,W0,N,N,T:.:SCO:UnixWare 7.1
-S17:64:1:60:M1380,N,W0,N,N,T:.:SCO:UnixWare 7.1.3 MP3
+S17:64:1:60:M*,N,W0,N,N,T:.:SCO:UnixWare 7.1.x
 S23:64:1:44:M1380:.:SCO:OpenServer 5.0
 
 # ------------------- DOS -------------------
 
 2048:255:0:44:M536:.:DOS:Arachne via WATTCP/1.05
 T2:255:0:44:M984:.:DOS:Arachne via WATTCP/1.05 (eepro)
+16383:64:0:44:M536:.:DOS:Unknown via WATTCP (epppd)
 
 # ------------------ OS/2 -------------------
 
@@ -702,7 +721,7 @@ S8:255:0:44:M*:.:Cisco:12008
 
 8192:64:1:64:M1460,N,N,S,N,W0,N,N,T:.:NetCache:5.2
 16384:64:1:64:M1460,N,N,S,N,W0,N:.:NetCache:5.3
-65535:64:1:64:M1460,N,N,S,N,W*,N,N,T:.:NetCache:5.3-5.5
+65535:64:1:64:M1460,N,N,S,N,W*,N,N,T:.:NetCache:5.3-5.5 (or FreeBSD 5.4)
 20480:64:1:64:M1460,N,N,S,N,W0,N,N,T:.:NetCache:4.1
 
 32850:64:1:64:N,W1,N,N,T,N,N,S,M*:.:NetCache:Data OnTap 5.x
@@ -723,19 +742,21 @@ S1:255:1:60:M1460,S,T,N,W0:.:LookSmart:ZyBorg
 
 # ----------- Embedded systems --------------
 
-S9:255:0:44:M536:.:PalmOS:Tungsten C
+S9:255:0:44:M536:.:PalmOS:Tungsten T3/C
 S5:255:0:44:M536:.:PalmOS:3/4
 S4:255:0:44:M536:.:PalmOS:3.5
 2948:255:0:44:M536:.:PalmOS:3.5.3 (Handera)
 S29:255:0:44:M536:.:PalmOS:5.0
 16384:255:0:44:M1398:.:PalmOS:5.2 (Clie)
 S14:255:0:44:M1350:.:PalmOS:5.2.1 (Treo)
+16384:255:0:44:M1400:.:PalmOS:5.2 (Sony)
 
 S23:64:1:64:N,W1,N,N,T,N,N,S,M1460:.:SymbianOS:7
 8192:255:0:44:M1460:.:SymbianOS:6048 (Nokia 7650?)
 8192:255:0:44:M536:.:SymbianOS:(Nokia 9210?)
 S22:64:1:56:M1460,T,S:.:SymbianOS:? (SE P800?)
 S36:64:1:56:M1360,T,S:.:SymbianOS:60xx (Nokia 6600?)
+S36:64:1:60:M1360,T,S,W0,E:.:SymbianOS:60xx
 
 32768:32:1:44:M1460:.:Windows:CE 3
 

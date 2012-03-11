@@ -36,6 +36,11 @@ And the credits go to:
   Safari: timestamp fixes and additions
   Aurelien Jacobs: perl version of p0f query tool
   Camilo Hernan Viecco: 802.11b fix
+  Zaki Chakib: cygwin tips
+  Gregory Steuck: sprintf fixes
+  GoTaR: masquerade timestamp patch
+  Ryan Kruse: boatloads of -A fingerprints
+  Stas Bekman: p0f.pid support
 
   William Stearns did lots of work that made v1 successful.
   He does not have any direct contributions to v2 yet, but I hope this will

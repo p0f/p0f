@@ -3,7 +3,7 @@
 # p0frep - trivial reporting script for p0f logfiles
 # --------------------------------------------------
 #
-# Copyright 2002-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+# Copyright 2002-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 
 echo "p0frep: p0f v2 log analyzer by <lcamtuf@coredump.cx>"

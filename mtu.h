@@ -5,7 +5,7 @@
 
    A list of known and used MTUs. Note: MSS is MTU-40 on a sane system.
 
-   Copyright (C) 2003-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+   Copyright (C) 2003-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 
 */
 

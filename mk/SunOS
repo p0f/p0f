@@ -2,14 +2,16 @@
 # p0f - SunOS/Solaris Makefile
 # ----------------------------
 #
-# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 
 CC      = gcc
-LIBS    = -lpcap -I/opt/local/include -L/opt/local/lib \
-          -I/usr/local/include -L/usr/local/lib -lsocket -lnsl 
+LIBS    = -lpcap -L/opt/local/lib \
+          -L/usr/local/lib -lsocket -lnsl 
 CFLAGS  = -O3 -Wall -fomit-frame-pointer -funroll-loops \
-          -DBYTE_ORDER=1234 -DBIG_ENDIAN=1234
+          -DBYTE_ORDER=1234 -DBIG_ENDIAN=1234 \
+	  -DUSE_BPF=\"${USE_BPF}\" \
+	  -I/opt/local/include  -I/usr/local/include
 FILE    = p0f
 TOOLS   = test/sendack test/sendack2 test/sendsyn
 

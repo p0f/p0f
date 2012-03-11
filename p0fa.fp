@@ -11,7 +11,7 @@
 # | caring maintainer.                                                      |
 # `-------------------------------------------------------------------------'
 #
-# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 # Plenty of signatures contributed in bulk by rain forest puppy, Paul Woo and
 # Michael Bauer.
@@ -57,7 +57,7 @@
 S22:64:1:60:M*,S,T,N,W0:AT:Linux:2.2
 S22:64:1:52:M*,N,N,S,N,W0:A:Linux:2.2 w/o timestamps
 
-5792:64:1:60:M*,S,T,N,W0:AT:Linux:older 2.04
+5792:64:1:60:M*,S,T,N,W0:AT:Linux:older 2.4
 5792:64:1:60:M*,S,T,N,W0:ZAT:Linux:recent 2.4 (1)
 S4:64:1:44:M*:ZA:Linux:recent 2.4 (2)
 5792:64:1:44:M*:ZA:Linux:recent 2.4 (3)
@@ -140,6 +140,42 @@ S6:64:1:60:M1460,N,W0,N,N,T:AT:BSD/OS:4.0.x
 
 33304:64:1:60:M*,N,W0,N,N,T:AT:MacOS:X 10.2.6
 
+#################################################################
+# Contributed by Ryan Kruse <rkruse@alterpoint.com> - trial run #
+#################################################################
+
+# S4:255:0:44:M1024:A:Cisco:LocalDirector
+# 1024:255:0:44:M536:A:Cisco,3COM,Nortel:CatIOS,SuperStack,BayStack
+# S16:64:0:44:M512:A:Nortel:Contivity
+# 8192:64:0:44:M1460:A:Cisco,Nortel,SonicWall,Tasman:Aironet,BayStack Switch,Soho,1200
+# 4096:255:0:44:M1460:A:Cisco:PIX,CatOS
+# 8192:128:0:44:M1460:A:Cisco:VPN Concentrator
+# 8192:128:0:60:M1460,N,W0,N,N,T:AT:Cisco:VPN Concentrator
+# 4096:32:0:44:M1460:A:Cisco,3COM,Extreme,Nortel:Catalyst Switch CatOS,CoreBuilder,Summit,Passport
+# S4:255:0:44:M536:ZA:Cisco:IOS
+# 1024:32:0:44:M1480:UA:Nortel:BayStack Switch
+# 4096:60:0:44:M1460:A:Adtran:NetVanta
+# 4096:64:0:44:M1008:A:Adtran:TSU
+# S4:32:0:44:M1024:A:Alcatel:Switch
+# S8:255:0:44:M536:ZA:Cisco:IOS
+# 50:255:0:44:M536:ZA:Cisco:CatIOS
+# 512:64:0:40:.:A:Dell:Switch
+# 4096:64:0:40:.:A:Enterasys:Vertical Horizon Switch
+# 17640:64:1:44:M1460:A:F5,Juniper,RiverStone:BigIP,Juniper OS,Router 7.0+
+# 16384:64:0:44:M1460:A:Foundry,SonicWall:BigIron,TZ
+# 4096:64:0:44:M1452:A:HP:ProCurve Switch
+# 1024:64:0:44:M1260:A:Marconi:ES
+# 10240:30:0:44:M1460:A:Milan:Switch
+# 4096:64:0:44:M1380:A:NetScreen:Firewall
+# S32:64:0:44:M512:A:Nokia:CheckPoint
+# 1024:64:0:44:M536:A:Nortel:BayStack Switch
+# 4128:255:0:44:M*:ZA:Cisco:IOS
+# 1024:16:0:44:M536:A:Nortel:BayStack Switch
+# 1024:30:0:44:M1480:A:Nortel:BayStack Switch
+# S4:64:0:44:M1460:A:Symbol:Spectrum Access Point
+# S2:255:0:44:M512:A:ZyXEL:Prestige
+# S16:255:0:44:M1024:A:ZyXEL:ZyAI
+
 ###########################################
 # Appliance / embedded / other signatures #
 ###########################################
@@ -160,7 +196,7 @@ S4:60:0:44:M1460:A:HP:JetDirect A.05.32
 8576:64:1:44:M*:A:Raptor:firewall
 S12:64:1:44:M1400:A:Cequrux Firewall:4.x
 2048:255:0:44:M1400:A:Netgear:MR814
-
+16384:113:0:64:M1460,N,W0,N,N,T0,N,N,S:A:Akamai:???
 
 # Whatever they run. EOL boys...
 S6:128:1:48:M1460,E:PA:@Slashdot:or BusinessWeek (???)

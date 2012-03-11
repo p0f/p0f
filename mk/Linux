@@ -4,13 +4,15 @@
 #
 # Note, you probably need gmake for this (OpenBSD take notice).
 # 
-# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 
 CC      = gcc
-LIBS	= -lpcap -I/usr/include/pcap -I/usr/local/include/pcap
+LIBS	= -lpcap
 STRIP   = strip
-CFLAGS  = -O3 -Wall -fomit-frame-pointer -funroll-loops
+CFLAGS  = -O3 -Wall -fomit-frame-pointer -funroll-loops \
+          -DUSE_BPF=\"${USE_BPF}\" \
+	  -I/usr/include/pcap -I/usr/local/include/pcap -I/usr/local/include
 FILE	= p0f
 TOOLS   = test/sendack test/sendack2 test/sendsyn
 

@@ -6,11 +6,11 @@
                     "Dr. Jekyll had something to Hyde"
 		    
                       passive OS fingerprinting tool
-                               version 2.0.5
+                               version 2.0.6
 
-     (C) Copyright 2000 - 2004 by Michal Zalewski <lcamtuf@coredump.cx>
+     (C) Copyright 2000 - 2006 by Michal Zalewski <lcamtuf@coredump.cx>
 
-                Various ports (C) Copyright 2003 - 2004 by:
+                Various ports (C) Copyright 2003 - 2006 by:
 
                    Michael A. Davis <mike@datanerds.net>
                       Kirby Kuehl <kkuehl@cisco.com>
@@ -19,6 +19,9 @@
       Portions contributed by numerous good people - see CREDITS file.
 
                    http://lcamtuf.coredump.cx/p0f.shtml
+		   
+      For a book on some interesting passive fingerprinting tips, see:
+                    http://lcamtuf.coredump.cx/silence
 
     *********************************************************************
     **** HELP WITH P0F DATABASE: http://lcamtuf.coredump.cx/p0f-help ****

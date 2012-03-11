@@ -10,7 +10,7 @@
 # | to this file. This database is looking for a caring maintainer.         |
 # `-------------------------------------------------------------------------'
 #
-# (C) Copyright 2000-2004 by Michal Zalewski <lcamtuf@coredump.cx>
+# (C) Copyright 2000-2006 by Michal Zalewski <lcamtuf@coredump.cx>
 #
 # Submit all additions to the authors. Read p0f.fp before adding any
 # signatures. Run p0f -O -C after making any modifications. This file is

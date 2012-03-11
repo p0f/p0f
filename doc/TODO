@@ -15,6 +15,9 @@
   - Some more SYN+ACK and RST+ signatures,
 
   - Add timestamp multipliers.
+  
+  - Add "skip dupes" option (cache is already there); until then,
+    pipe p0f through uniq if you must.
 
   - Towards cummulative fingerprinting: SYN, SYN+ACK, RST+, FIN+,
     retransmit timing.
