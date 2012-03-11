@@ -99,7 +99,7 @@ static _u8 *config_file,
            *use_iface,
            *use_dump,
            *write_dump,
-		   *use_cache,
+	   *use_cache,
 #ifndef WIN32
            *set_user,
 #endif /* !WIN32 */
@@ -110,7 +110,7 @@ static _s32 masq_thres;
 
 static _u8 no_extra,
            find_masq,
-		   masq_flags,
+	   masq_flags,
            no_osdesc,
            no_known,
            no_unknown,
@@ -120,6 +120,7 @@ static _u8 no_extra,
            header_len,
            ack_mode,
            rst_mode,
+           open_mode,
            go_daemon,
            use_logfile,
            mode_oneline,
@@ -128,6 +129,7 @@ static _u8 no_extra,
            check_collide,
            full_dump,
            use_fuzzy,
+           use_vlan,
            payload_dump;
 
 static pcap_t *pt;
@@ -220,7 +222,7 @@ static void usage(_u8* name) {
           "\nUsage: %s [ -f file ] [ -i device ] [ -s file ] [ -o file ]\n"
 
 #ifndef WIN32
-          "       [ -w file ] [ -Q sock ] [ -u user ] [ -FXVNDUKASCMRqtpdlr ]\n"
+          "       [ -w file ] [ -Q sock ] [ -u user ] [ -FXVONDUKASCMRqtpvdlr ]\n"
           "       [ -c size ] [ -T nn ] [ 'filter rule' ]\n"
 #else
 		  "       [ -w file ] [ -XVNDUKASCMLRqtpdlrx ]\n"
@@ -248,8 +250,10 @@ static void usage(_u8* name) {
           "  -S        - report signatures even for known systems\n"
           "  -A        - go into SYN+ACK mode (semi-supported)\n"
           "  -R        - go into RST/RST+ACK mode (semi-supported)\n"
+          "  -O        - go into stray ACK mode (barely supported)\n"
           "  -r        - resolve host names (not recommended)\n"
           "  -q        - be quiet - no banner\n"
+          "  -v        - enable support for 802.1Q VLAN frames\n"
           "  -p        - switch card to promiscuous mode\n"
           "  -d        - daemon mode (fork into background)\n"
           "  -l        - use single-line output (easier to grep)\n"
@@ -485,11 +489,14 @@ static void load_config(_u8* file) {
   _u8 buf[MAXLINE];
   _u8* p;
   FILE* c = fopen(file?file:(_u8*)
-            (ack_mode?SYNACK_DB:(rst_mode?RST_DB:SYN_DB)),"r");
+            (ack_mode?SYNACK_DB:(rst_mode?RST_DB:(open_mode?OPEN_DB:SYN_DB))),
+            "r");
 
   if (!c) {
     if (!file) load_config(ack_mode? CONFIG_DIR "/" SYNACK_DB :
-                                     ( rst_mode ? CONFIG_DIR "/" RST_DB : CONFIG_DIR "/" SYN_DB ));
+                                     ( rst_mode ? CONFIG_DIR "/" RST_DB : 
+                                     ( open_mode ? CONFIG_DIR "/" OPEN_DB : 
+                                       CONFIG_DIR "/" SYN_DB )));
       else pfatal(file);
     return;
   }
@@ -520,7 +527,11 @@ static void load_config(_u8* file) {
 
     gptr = genre;
 
-    if (*sb != '*') s = atoi(sb); else s = 0;
+    if (*sb != '*') {
+      if (open_mode) 
+        fatal("Packet size must be '*' in -O mode (line %d).\n",ln);
+      s = atoi(sb); 
+    } else s = 0;
 
 reparse_ptr:
 
@@ -643,7 +654,13 @@ reparse_ptr:
 	      " mode (wrong config file?).\n",ln);
   	  sig[sigcnt].quirks |= QUIRK_RSTACK; 
 	  break;
-	  
+
+        case 'D': 
+          if (open_mode) fatal("Quirk 'D' (line %d) is not valid in OPEN (-O) "
+                               "mode (wrong config file?).\n",ln);
+          sig[sigcnt].quirks |= QUIRK_DATA; 
+ 	  break;
+ 
         case 'Q': sig[sigcnt].quirks |= QUIRK_SEQEQ; break;
         case '0': sig[sigcnt].quirks |= QUIRK_SEQ0; break;
         case 'P': sig[sigcnt].quirks |= QUIRK_PAST; break;
@@ -654,7 +671,6 @@ reparse_ptr:
         case 'A': sig[sigcnt].quirks |= QUIRK_ACK; break;
         case 'T': sig[sigcnt].quirks |= QUIRK_T2; break;
         case 'F': sig[sigcnt].quirks |= QUIRK_FLAGS; break;
-        case 'D': sig[sigcnt].quirks |= QUIRK_DATA; break;
         case '!': sig[sigcnt].quirks |= QUIRK_BROKEN; break;
         case '.': break;
         default: fatal("Bad quirk '%c' in line %d.\n",*(p-1),ln);
@@ -820,9 +836,11 @@ static inline void display_signature(_u8 ttl,_u16 tot,_u8 df,_u8* op,_u8 ocnt,
   if (wss && !(wss % 1500)) printf("T%d",wss/1500); else
   if (wss == 12345) printf("*(12345)"); else printf("%d",wss);
 
-  if (tot < PACKET_BIG) printf(":%d:%d:%d:",ttl,df,tot);
-  else printf(":%d:%d:*(%d):",ttl,df,tot);
-
+  if (!open_mode) {
+    if (tot < PACKET_BIG) printf(":%d:%d:%d:",ttl,df,tot);
+    else printf(":%d:%d:*(%d):",ttl,df,tot);
+  } else printf(":%d:%d:*:",ttl,df);
+  
   for (j=0;j<ocnt;j++) {
     switch (op[j]) {
       case TCPOPT_NOP: putchar('N'); d=1; break;
@@ -938,8 +956,10 @@ re_lookup:
     /* Cheap and specific checks first... */
 
     /* psize set to zero means >= PACKET_BIG */
-    if (p->size) { if (tot ^ p->size) { p = p->next; continue; } }
-      else if (tot < PACKET_BIG) { p = p->next; continue; }
+    if (!open_mode) {
+      if (p->size) { if (tot ^ p->size) { p = p->next; continue; } }
+        else if (tot < PACKET_BIG) { p = p->next; continue; }
+    }
 
     if (ocnt ^ p->optcnt) { p = p->next; continue; }
 
@@ -1235,6 +1255,9 @@ static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
 
   iph = (struct ip_header*)(packet+header_len);
 
+  if (use_vlan && iph->ihl == 0x00) 
+    iph = (struct ip_header*)((_u8*)iph + 4);
+
   /* Whoops, IP header ends past end_ptr */
   if ((_u8*)(iph + 1) > end_ptr) return;
 
@@ -1250,7 +1273,9 @@ static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
   if (end_ptr > opt_ptr) end_ptr = opt_ptr;
 
   ilen = iph->ihl & 15;
-  pts = pph->ts;
+
+  /* OpenBSD kludge */
+  pts = *(struct timeval*)&pph->ts;
 
   /* Borken packet */
   if (ilen < 5) return;
@@ -1269,7 +1294,7 @@ static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
     quirks |= QUIRK_IPOPT;
   }
 
-  tcph = (struct tcp_header*)(packet + header_len + (ilen << 2));
+  tcph = (struct tcp_header*)((_u8*)iph + (ilen << 2));
   opt_ptr = (_u8*)(tcph + 1);
     
   /* Whoops, TCP header would end past end_ptr */
@@ -1280,7 +1305,8 @@ static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
   if (tcph->seq == tcph->ack) quirks |= QUIRK_SEQEQ;
   if (!tcph->seq) quirks |= QUIRK_SEQ0;
  
-  if (tcph->flags & ~(TH_SYN|TH_ACK|TH_RST|TH_ECE|TH_CWR)) 
+  if (tcph->flags & ~(TH_SYN|TH_ACK|TH_RST|TH_ECE|TH_CWR 
+                      | (open_mode?TH_PUSH:0))) 
     quirks |= QUIRK_FLAGS;
 
   ilen=((tcph->doff) << 2) - sizeof(struct tcp_header);
@@ -1299,7 +1325,7 @@ static void parse(_u8* none, struct pcap_pkthdr *pph, _u8* packet) {
     fflush(0);
 #endif /* DEBUG_EXTRAS */
   
-    quirks |= QUIRK_DATA;
+    if (!open_mode) quirks |= QUIRK_DATA;
     pay = opt_ptr + ilen;
    
   }
@@ -1414,7 +1440,7 @@ end_parsing:
    if (!iph->id)  quirks |= QUIRK_ZEROID;
 
    find_match(
-     /* total */ ntohs(iph->tot_len),
+     /* total */ open_mode ? 0 : ntohs(iph->tot_len),
      /* DF */    (ntohs(iph->off) & IP_DF) != 0,
      /* TTL */   iph->ttl,
      /* WSS */   ntohs(tcph->win),
@@ -1457,14 +1483,14 @@ int main(int argc,char** argv) {
   _u8 ebuf[PCAP_ERRBUF_SIZE];
   pcap_if_t *alldevs, *d;
   _s32 adapter, i;
-  while ((r = getopt(argc, argv, "f:i:s:o:w:c:T:XNVFDxKUqtpArRlSdCLM")) != -1)
+  while ((r = getopt(argc, argv, "f:i:s:o:w:c:T:XONVFDxKUqvtpArRlSdCLM")) != -1)
 #else
   _s32 lsock=0;
 
   if (getuid() != geteuid())
     fatal("This program is not intended to be setuid.\n");
   
-  while ((r = getopt(argc, argv, "f:i:s:o:Q:u:w:c:T:XFNVDxKUqtRpArlSdCM")) != -1) 
+  while ((r = getopt(argc, argv, "f:i:s:o:Q:u:w:c:T:XOFNVDxKUqtRpvArlSdCM")) != -1) 
 #endif /* ^WIN32 */
 
     switch (r) {
@@ -1504,6 +1530,7 @@ int main(int argc,char** argv) {
       case 'p': use_promisc   = 1; break;
       case 't': add_timestamp++;   break;
       case 'd': go_daemon     = 1; break;
+      case 'v': use_vlan      = 1; break;
       case 'l': mode_oneline  = 1; break;
       case 'C': check_collide = 1; break;
       case 'x': full_dump     = 1; break;
@@ -1516,6 +1543,10 @@ int main(int argc,char** argv) {
 
       case 'R': use_rule = "tcp[13] & 0x17 == 0x4 or tcp[13] & 0x17 == 0x14";
                 rst_mode = 1;
+                break;
+
+      case 'O': use_rule = "tcp[13] & 0x17 == 0x10";
+                open_mode = 1;
                 break;
 
 #ifdef WIN32
@@ -1549,8 +1580,9 @@ int main(int argc,char** argv) {
   if (full_dump && mode_oneline)
     fatal("-x and -l are mutually exclusive.\n");
 
-  if (ack_mode && rst_mode)
-    fatal("-A and -R are mutually exclusive.\n");
+  if ((ack_mode && rst_mode) || (ack_mode && open_mode) ||
+      (open_mode && ack_mode))
+    fatal("-A, -R and -O are mutually exclusive.\n");
 
 #ifdef DEBUG_EXTRAS
   if (mode_oneline || no_known || no_unknown || no_extra)
@@ -1586,13 +1618,19 @@ int main(int argc,char** argv) {
     use_rule = buf;
   } 
 
+  if (use_vlan) {
+    _u8* x = strdup(use_rule);
+    sprintf(buf,"(%1000s) or (vlan and (%1000s))",x,x);
+    free(x);
+    use_rule = buf;
+  }
+
   signal(SIGINT,&die_nicely);
   signal(SIGTERM,&die_nicely);
 
 #ifndef WIN32
   signal(SIGHUP,&die_nicely);
   signal(SIGQUIT,&die_nicely);
-
 
   if (use_cache) {
     struct sockaddr_un x;
@@ -1653,7 +1691,8 @@ int main(int argc,char** argv) {
 
   if (!no_banner) {
     debug("p0f: listening (%s) on '%s', %d sigs (%d generic), rule: '%s'.\n",
-          ack_mode ? "SYN+ACK" : rst_mode ? "RST+" : "SYN",
+          ack_mode ? "SYN+ACK" : rst_mode ? "RST+" :
+          open_mode ? "OPEN" : "SYN",
           use_dump?use_dump:use_iface,sigcnt,gencnt,
           argv[optind]?argv[optind]:"all");
 

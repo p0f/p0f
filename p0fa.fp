@@ -18,7 +18,7 @@
 #
 # Submit all additions to the authors. Read p0f.fp before adding any
 # signatures. Run p0f -A -C after making any modifications. This file is
-# NOT compatible with SYN or RST+ modes. Use only with -A option.
+# NOT compatible with SYN, RST+, or stray ACK modes. Use only with -A option.
 #
 # Feel like contributing? You can run p0f -A -K, then test/tryid -iR nnn...
 #

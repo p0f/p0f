@@ -14,8 +14,8 @@
 #
 # Submit all additions to the authors. Read p0f.fp before adding any
 # signatures. Run p0f -R -C after making any modifications. This file is
-# NOT compatible with SYN or SYN+ACK modes. Use only with -R option.
-#
+# NOT compatible with SYN, SYN+ACK, or stray ACK modes. Use only with -R 
+# option.
 #
 # IMPORTANT INFORMATION ABOUT THE INTERDEPENDENCY OF SYNs AND RST+ACKs
 # --------------------------------------------------------------------

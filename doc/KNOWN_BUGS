@@ -6,7 +6,7 @@ Known unresolved issues with p0f v2:
 
   - Uptime is reported incorrectly for some systems that use
     more unusual timestamp frequencies. This will be addressed in the
-    next release.
+    next release (this note is here for a couple of releases, though ;-).
 
 
 

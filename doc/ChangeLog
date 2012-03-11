@@ -1,4 +1,21 @@
 
+Verison 2.0.5:
+--------------
+
+  [BUG] OpenBSD compile fix.
+
+  Support for 802.1Q.
+
+  New signatures.
+
+  Speel-chceked teh docuhmentation!
+
+  Absolutely experimental support for open connection fingerprinting (-O).
+
+  Synced manpage and documentation.
+
+  Added several -O signatures.
+
 Verison 2.0.4:
 --------------
 

@@ -373,14 +373,10 @@ S1:64:0:44:M*:A:Linux:1.2.x
 
 S4:64:1:60:M1360,S,T,N,W0:.:Linux:2.4 (Google crawlbot)
 
-# Linux 2.6.0-test has an identical footprint as 2.4. I
-# wouldn't put it here until 2.6 gets a bit more, err,
-# mature (and perhaps starts to differ ;-), but many
-# people keep submitting 2.6.0-tests.
-
 S2:64:1:60:M*,S,T,N,W0:.:Linux:2.4 (big boy)
 S3:64:1:60:M*,S,T,N,W0:.:Linux:2.4.18 and newer
-S4:64:1:60:M*,S,T,N,W0:.:Linux:2.4/2.6
+S4:64:1:60:M*,S,T,N,W0:.:Linux:2.4/2.6 <= 2.6.7
+S4:64:1:60:M*,S,T,N,W7:.:Linux:2.6.8 and newer (?)
 
 S3:64:1:60:M*,S,T,N,W1:.:Linux:2.5 (sometimes 2.4) (1)
 S4:64:1:60:M*,S,T,N,W1:.:Linux:2.5/2.6 (sometimes 2.4) (2)
@@ -591,7 +587,7 @@ S6:255:1:48:M536,N,N,S:.:Windows:95 winsock 2
 
 16384:64:1:68:M1460,N,W0,N,N,T,N,N,?12:.:RISC OS:3.70-4.36 (inet 5.04)
 12288:32:0:44:M536:.:RISC OS:3.70 inet 4.10
-4096:64:1:56:M1460,N,N,T:T:.:RISC OS:3.70 freenet 2.00
+4096:64:1:56:M1460,N,N,T:T:RISC OS:3.70 freenet 2.00
 
 # ----------------- BSD/OS ------------------
 
@@ -645,6 +641,7 @@ S23:64:1:44:M1380:.:SCO:OpenServer 5.0
 # ------------------- DOS -------------------
 
 2048:255:0:44:M536:.:DOS:Arachne via WATTCP/1.05
+T2:255:0:44:M984:.:DOS:Arachne via WATTCP/1.05 (eepro)
 
 # ------------------ OS/2 -------------------
 
@@ -686,7 +683,6 @@ S44:255:0:44:M536:.:FreeMiNT:1 patch 16A (Atari)
 S12:64:1:44:M1460:.:@Checkpoint:(unknown 1)
 S12:64:1:48:N,N,S,M1460:.:@Checkpoint:(unknown 2)
 4096:32:0:44:M1460:.:ExtremeWare:4.x
-60352:64:0:52:M1460,N,W2,N,N,S:.:Clavister:firewall 7.x
 
 S32:64:0:68:M512,N,W0,N,N,T,N,N,?12:.:Nokia:IPSO w/Checkpoint NG FP3
 S16:64:0:68:M1024,N,W0,N,N,T,N,N,?12:.:Nokia:IPSO 3.7 build 026
@@ -733,6 +729,7 @@ S4:255:0:44:M536:.:PalmOS:3.5
 2948:255:0:44:M536:.:PalmOS:3.5.3 (Handera)
 S29:255:0:44:M536:.:PalmOS:5.0
 16384:255:0:44:M1398:.:PalmOS:5.2 (Clie)
+S14:255:0:44:M1350:.:PalmOS:5.2.1 (Treo)
 
 S23:64:1:64:N,W1,N,N,T,N,N,S,M1460:.:SymbianOS:7
 8192:255:0:44:M1460:.:SymbianOS:6048 (Nokia 7650?)
@@ -766,6 +763,11 @@ S12:64:0:44:M1452:.:AXIS:Printer Server 5600 v5.64
 3072:64:0:40:.:.:-*NMAP:syn scan (3)
 4096:64:0:40:.:.:-*NMAP:syn scan (4)
 
+1024:64:0:40:.:A:-*NMAP:TCP sweep probe (1)
+2048:64:0:40:.:A:-*NMAP:TCP sweep probe (2)
+3072:64:0:40:.:A:-*NMAP:TCP sweep probe (3)
+4096:64:0:40:.:A:-*NMAP:TCP sweep probe (4)
+
 1024:64:0:60:W10,N,M265,T,E:P:-*NMAP:OS detection probe (1)
 2048:64:0:60:W10,N,M265,T,E:P:-*NMAP:OS detection probe (2)
 3072:64:0:60:W10,N,M265,T,E:P:-*NMAP:OS detection probe (3)
@@ -775,6 +777,8 @@ S12:64:0:44:M1452:.:AXIS:Printer Server 5600 v5.64
 2048:64:0:60:W10,N,M265,T,E:PF:-*NMAP:OS detection probe w/flags (2)
 3072:64:0:60:W10,N,M265,T,E:PF:-*NMAP:OS detection probe w/flags (3)
 4096:64:0:60:W10,N,M265,T,E:PF:-*NMAP:OS detection probe w/flags (4)
+
+32767:64:0:40:.:.:-*NAST:syn scan
 
 12345:255:0:40:.:A:-p0f:sendsyn utility
 
@@ -789,6 +793,7 @@ S23:64:1:64:N,W1,N,N,T,N,N,S,M1380:.:@Mysterious:GPRS gateway (?)
 #####################################
 
 *:128:1:52:M*,N,W0,N,N,S:.:@Windows:XP/2000 (RFC1323 no tstamp)
+*:128:1:52:M*,N,W*,N,N,S:.:@Windows:XP/2000 (RFC1323, w+, no tstamp)
 *:128:1:64:M*,N,W0,N,N,T0,N,N,S:.:@Windows:XP/2000 (RFC1323)
 *:128:1:64:M*,N,W*,N,N,T0,N,N,S:.:@Windows:XP (RFC1323, w+)
 *:128:1:48:M536,N,N,S:.:@Windows:98

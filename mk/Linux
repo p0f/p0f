@@ -46,6 +46,6 @@ install: $(FILE)
 	cp -f $(FILE) /usr/sbin/
 	cp -f p0frep /usr/sbin/
 	mkdir /etc/p0f || true
-	cp -f p0f.fp p0fa.fp p0fr.fp /etc/p0f/
+	cp -f p0f.fp p0fa.fp p0fr.fp p0fo.fp /etc/p0f/
 	cp -f p0f.1 /usr/man/man1/ || cp -f p0f.1 /usr/local/man/man1/
 	@echo "You might want to manually install test/ tools now."

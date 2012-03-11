@@ -12,7 +12,7 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VER		"2.0.4"
+#define VER		"2.0.5"
 
 /* Paths and names to config files */
 
@@ -25,6 +25,7 @@
 #define SYN_DB		"p0f.fp"
 #define SYNACK_DB	"p0fa.fp"
 #define RST_DB		"p0fr.fp"
+#define OPEN_DB		"p0fo.fp"
 
 /* Maximum number of signatures allowed in the config file */
 
