@@ -306,7 +306,7 @@ static inline void TRK_alloc_buf(void* ptr, const char* file, const char* func,
 
     if (!TRK[bucket][i].ptr) {
 
-      TRK[bucket][i].ptr = ptr;
+      TRK[bucket][i].ptr  = ptr;
       TRK[bucket][i].file = (char*)file;
       TRK[bucket][i].func = (char*)func;
       TRK[bucket][i].line = line;
@@ -319,7 +319,7 @@ static inline void TRK_alloc_buf(void* ptr, const char* file, const char* func,
   if (!(i % ALLOC_TRK_CHUNK)) {
 
     TRK[bucket] = DFL_ck_realloc(TRK[bucket],
-      TRK_cnt[bucket] + ALLOC_TRK_CHUNK);
+      (TRK_cnt[bucket] + ALLOC_TRK_CHUNK) * sizeof(struct TRK_obj));
 
   }
 

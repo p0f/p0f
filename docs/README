@@ -799,8 +799,8 @@ example, you can do:
 # mkdir -p -m 755 /var/empty/p0f
 
 Please don't put the p0f binary itself, or any other valuable assets, inside
-the user's home directory; and certainly do not point it to any generic
-locations such as / or /bin/.
+that user's home directory; and certainly do not use any generic locations such
+as / or /bin/ in lieu of a proper home.
 
 P0f running in the background should be fairly difficult to DoS, especially
 compared to any real TCP services it will be watching. Nevertheless, there are
@@ -826,8 +826,9 @@ Last but not least, please do not attempt to make p0f setuid, or otherwise
 grant it privileges higher than these of the calling user. Neither the tool
 itself, nor the third-party components it depends on, are designed to keep rogue
 less-privileged callers at bay. If you use /etc/sudoers to list p0f as the only
-program that user X should be able to run as root, the user will probably be
-able to root your box.
+program that user X should be able to run as root, that user will probably be
+able to compromise your system. The same goes for many other uses of sudo, by
+the way.
 
 --------------
 8. Limitations

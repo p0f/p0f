@@ -1,3 +1,10 @@
+Version 3.04b:
+--------------
+
+Bug fixes:
+
+  - Fixed a realloc bug (not normally triggered in p0f)
+
 Version 3.03b:
 --------------
 

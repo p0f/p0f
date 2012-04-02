@@ -180,6 +180,7 @@ label = s:win:Windows:7 or 8
 sig   = *:128:0:*:8192,0:mss,nop,nop,sok:df,id+:0
 sig   = *:128:0:*:8192,2:mss,nop,ws,nop,nop,sok:df,id+:0
 sig   = *:128:0:*:8192,8:mss,nop,ws,nop,nop,sok:df,id+:0
+sig   = *:128:0:*:8192,2:mss,nop,ws,sok,ts:df,id+:0
 
 ; Robots with distinctive fingerprints:
 

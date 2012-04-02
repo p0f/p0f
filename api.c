@@ -31,6 +31,8 @@ void handle_query(struct p0f_api_query* q, struct p0f_api_response* r) {
 
   memset(r, 0, sizeof(struct p0f_api_response));
 
+  r->magic = P0F_RESP_MAGIC;
+
   if (q->magic != P0F_QUERY_MAGIC) {
 
     WARN("Query with bad magic (0x%x).", q->magic);
@@ -40,8 +42,6 @@ void handle_query(struct p0f_api_query* q, struct p0f_api_response* r) {
     return;
 
   }
-
-  r->magic = P0F_RESP_MAGIC;
 
   switch (q->addr_type) {
 
