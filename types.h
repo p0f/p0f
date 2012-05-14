@@ -37,9 +37,9 @@ typedef int64_t  s64;
 #  define RD16p(_ptr) ({ u16 _ret; memcpy(&_ret, _ptr, 2); _ret; })
 #  define RD32p(_ptr) ({ u32 _ret; memcpy(&_ret, _ptr, 4); _ret; })
 #else
-#  define RD16(_val)  (_val)
-#  define RD32(_val)  (_val)
-#  define RD16p(_ptr) (*((u32*)(_ptr)))
+#  define RD16(_val)  ((u16)_val)
+#  define RD32(_val)  ((u32)_val)
+#  define RD16p(_ptr) (*((u16*)(_ptr)))
 #  define RD32p(_ptr) (*((u32*)(_ptr)))
 #endif /* ^ALIGN_ACCESS */
 

@@ -56,7 +56,7 @@ static s16 detect_win_multi(struct tcp_sig* ts, u8* use_mtu, u16 syn_mss) {
     return -1;
 
 #define RET_IF_DIV(_div, _use_mtu, _desc) do { \
-    if (!(win % (_div))) { \
+    if ((_div) && !(win % (_div))) { \
       *use_mtu = (_use_mtu); \
       DEBUG("[#] Window size %u is a multiple of %s [%u].\n", win, _desc, _div); \
       return win / (_div); \

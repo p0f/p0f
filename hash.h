@@ -18,16 +18,16 @@
 
 static inline u32 hash32(const void* key, u32 len, u32 seed) {
 
-  const u32 *k = (const u32*)key;
   u32 a, b, c;
+  const u8* k = key;
 
   a = b = c = 0xdeadbeef + len + seed;
 
   while (len > 12) {
 
-    a += k[0];
-    b += k[1];
-    c += k[2];
+    a += RD32p(k);
+    b += RD32p(k + 4);
+    c += RD32p(k + 8);
 
     a -= c; a ^= ROL32(c,  4); c += b;
     b -= a; b ^= ROL32(a,  6); a += c;
@@ -37,26 +37,47 @@ static inline u32 hash32(const void* key, u32 len, u32 seed) {
     c -= b; c ^= ROL32(b,  4); b += a;
 
     len -= 12;
-    k += 3;
+    k += 12;
 
   }
 
   switch (len) {
 
-    case 12: c += k[2];            b += k[1]; a += k[0]; break;
-    case 11: c += k[2] & 0xffffff; b += k[1]; a += k[0]; break;
-    case 10: c += k[2] & 0xffff;   b += k[1]; a += k[0]; break;
-    case 9:  c += k[2] & 0xff;     b += k[1]; a += k[0]; break;
+    case 12: c += RD32p(k + 8);
+             b += RD32p(k+ 4);
+             a += RD32p(k); break;
 
-    case 8:  b += k[1];            a += k[0]; break;
-    case 7:  b += k[1] & 0xffffff; a += k[0]; break;
-    case 6:  b += k[1] & 0xffff;   a += k[0]; break;
-    case 5:  b += k[1] & 0xff;     a += k[0]; break;
+    case 11: c += (RD16p(k + 8) << 8) | k[10];
+             b += RD32p(k + 4);
+             a += RD32p(k); break;
 
-    case 4:  a += k[0];            break;
-    case 3:  a += k[0] & 0xffffff; break;
-    case 2:  a += k[0] & 0xffff;   break;
-    case 1:  a += k[0] & 0xff;     break;
+    case 10: c += RD16p(k + 8);
+             b += RD32p(k + 4);
+             a += RD32p(k); break;
+
+    case 9:  c += k[8];
+             b += RD32p(k + 4);
+             a += RD32p(k); break;
+
+    case 8:  b += RD32p(k + 4);
+             a += RD32p(k); break;
+
+    case 7:  b += (RD16p(k + 4) << 8) | k[6] ;
+             a += RD32p(k); break;
+
+    case 6:  b += RD16p(k + 4);
+             a += RD32p(k); break;
+
+    case 5:  b += k[4];
+             a += RD32p(k); break;
+
+    case 4:  a += RD32p(k); break;
+
+    case 3:  a += (RD16p(k) << 8) | k[2]; break;
+
+    case 2:  a += RD16p(k); break;
+
+    case 1:  a += k[0]; break;
 
     case 0:  return c;
 
