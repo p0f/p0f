@@ -99,6 +99,7 @@ void handle_query(struct p0f_api_query* q, struct p0f_api_response* r) {
   r->last_chg    = h->last_chg;
   r->up_mod_days = h->up_mod_days;
   r->distance    = h->distance;
+  r->os_match_q  = h->last_quality;
 
   if (h->last_up_min != -1) r->uptime_min = h->last_up_min;
 

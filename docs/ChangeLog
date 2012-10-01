@@ -1,3 +1,14 @@
+Version 3.06b:
+--------------
+
+Bug fixes:
+
+  - Made os_match_q actually functional in api.c (thanks to Anthony Howe).
+
+  - Fixed api.c struct packing issue (thanks to Tomoyuki Murakami).
+
+  - Improved logic around the vlan behavior (thanks to Anthony Howe).
+
 Version 3.05b:
 --------------
 

@@ -36,7 +36,7 @@ struct p0f_api_query {
   u8  addr_type;                        /* P0F_ADDR_*                         */
   u8  addr[16];                         /* IP address (big endian left align) */
 
-};
+} __attribute__((packed));
 
 struct p0f_api_response {
 
@@ -68,7 +68,7 @@ struct p0f_api_response {
 
   u8  language[P0F_STR_MAX + 1];        /* Language                           */
 
-};
+} __attribute__((packed));
 
 #ifdef _FROM_P0F
 

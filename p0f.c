@@ -545,6 +545,8 @@ static void prepare_bpf(void) {
 
   vlan_support = (pcap_datalink(pt) == DLT_EN10MB);
 
+retry_no_vlan:
+
   if (!orig_rule) {
 
     if (vlan_support) {
@@ -575,6 +577,15 @@ static void prepare_bpf(void) {
   DEBUG("[#] Computed rule: %s\n", final_rule);
 
   if (pcap_compile(pt, &flt, (char*)final_rule, 1, 0)) {
+
+    if (vlan_support) {
+
+      if (orig_rule) ck_free(final_rule);
+      vlan_support = 0;
+      goto retry_no_vlan;
+
+    }
+
     pcap_perror(pt, "[-] pcap_compile");
 
     if (!orig_rule)
