@@ -976,6 +976,13 @@ poll_again:
 
           if (i < 0) PFATAL("read() on API socket fails despite POLLIN.");
 
+	  if (i == 0) {
+	    pfds[cur].revents |= POLLHUP;
+	    pfds[cur].revents |= POLLERR;
+            DEBUG("[#] API connection on fd[%d]=%d has ended: read returned zero.\n", 
+		cur, pfds[cur].fd);
+	  }
+
           ctable[cur]->in_off += i;
 
           /* Query in place? Compute response and prepare to send it back. */
@@ -984,8 +991,7 @@ poll_again:
 
             handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data);
             pfds[cur].events = (POLLOUT | POLLERR | POLLHUP);
-
-          }
+	  }
 
       }
 
