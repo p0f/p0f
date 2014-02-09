@@ -17,7 +17,21 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#include <sys/fcntl.h>
+#ifdef SOLARIS
+//#  warning "SOLARIS=yes"
+#  include <sys/fcntl.h>
+#  include <fcntl.h>
+# ifdef SOLARIS_UCB
+#    include "/usr/ucbinclude/sys/file.h"
+# else
+#    include <sys/file.h>
+# endif
+#else
+//#  warning "SOLARIS=no"
+#  include <sys/fcntl.h>
+#  include <sys/file.h>
+#endif /* !SOLARIS */
+
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/stat.h>

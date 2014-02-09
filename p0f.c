@@ -28,11 +28,25 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
-#include <sys/fcntl.h>
+#ifdef SOLARIS
+//#  warning "SOLARIS=yes"
+#  include <sys/fcntl.h>
+#  include <fcntl.h>
+# ifdef SOLARIS_UCB
+#    include "/usr/ucbinclude/sys/file.h"
+# else
+#    include <sys/file.h>
+# endif
+   int flock(int fd, int operation);
+#else
+//#  warning "SOLARIS=no"
+#  include <sys/fcntl.h>
+#  include <sys/file.h>
+#endif /* !SOLARIS */
 #include <sys/stat.h>
-#include <sys/file.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
+
 
 #include <pcap.h>
 
@@ -51,6 +65,53 @@
 #include "tcp.h"
 #include "fp_http.h"
 #include "p0f.h"
+
+#ifdef SOLARIS
+#ifndef SOLARIS_UCB
+
+#ifndef LOCK_SH
+#define   LOCK_SH   1    /* shared lock */
+#define   LOCK_EX   2    /* exclusive lock */
+#define   LOCK_NB   4    /* don't block when locking */
+#define   LOCK_UN   8    /* unlock */
+#endif
+
+/* http://www.perkin.org.uk/posts/solaris-portability-flock.html */
+int flock(int fd, int op) {
+    int rc = 0;
+
+#if defined(F_SETLK) && defined(F_SETLKW)
+    struct flock fl = {0};
+
+    switch (op & (LOCK_EX|LOCK_SH|LOCK_UN)) {
+    case LOCK_EX:
+	fl.l_type = F_WRLCK;
+	break;
+
+    case LOCK_SH:
+	fl.l_type = F_RDLCK;
+	break;
+
+    case LOCK_UN:
+	fl.l_type = F_UNLCK;
+	break;
+
+    default:
+	errno = EINVAL;
+	return -1;
+    }
+
+    fl.l_whence = SEEK_SET;
+    rc = fcntl(fd, op & LOCK_NB ? F_SETLK : F_SETLKW, &fl);
+
+    if (rc && (errno == EAGAIN))
+	errno = EWOULDBLOCK;
+#endif
+
+    return rc;
+}
+#endif
+#endif
 
 #ifndef PF_INET6
 #  define PF_INET6          10

@@ -11,9 +11,12 @@
 PROGNAME="p0f"
 VERSION="3.06b"
 
+echo "Building $PROGNAME-$VERSION for $OSTYPE: $0 $@"
+#set
+
 test "$CC" = "" && CC="gcc"
 
-BASIC_CFLAGS="-Wall -Wno-format -I/usr/local/include/ \
+BASIC_CFLAGS="-Wall -Wno-format -I/usr/include -I/usr/local/include/ \
               -I/opt/local/include/ -DVERSION=\"$VERSION\" $CFLAGS"
 
 BASIC_LDFLAGS="-L/usr/local/lib/ -L/opt/local/lib $LDFLAGS"
@@ -23,13 +26,27 @@ USE_CFLAGS="-fstack-protector-all -fPIE -D_FORTIFY_SOURCE=2 -g -ggdb \
 
 USE_LDFLAGS="-Wl,-z,relro -pie $BASIC_LDFLAGS"
 
-if [ "$OSTYPE" = "cygwin" ]; then
-  USE_LIBS="-lwpcap $LIBS"
-elif [ "$OSTYPE" = "solaris" ]; then
-  USE_LIBS="-lsocket -lnsl $LIBS"
-else
-  USE_LIBS="-lpcap $LIBS"
-fi
+case "$OSTYPE" in
+  cygwin)	echo "Detected OS to tweak: CygWin"
+		USE_LIBS="-lwpcap $LIBS"
+		;;
+  solaris*)	echo "Detected OS to tweak: Solaris"
+		USE_CFLAGS="$USE_CFLAGS -DSOLARIS=1"
+		BASIC_CFLAGS="$BASIC_CFLAGS -DSOLARIS=1"
+		USE_LIBS="-lsocket -lnsl -lpcap $LIBS" 
+		if [ ! -s /usr/include/stdint.h -a -f stdint-replacement.h ]; then
+		    ln -s stdint-replacement.h stdint.h
+		    BASIC_CFLAGS="$BASIC_CFLAGS -I."
+		    USE_CFLAGS="$USE_CFLAGS -I."
+		fi
+#		if [ -f /usr/ucblib/libucb.so -a -d /usr/ucbinclude ]; then
+#		    USE_LIBS="-lucb $USE_LIBS"
+#		    USE_CFLAGS="$USE_CFLAGS -L/usr/ucblib -DDSOLARIS_UCB=1"
+#		    BASIC_CFLAGS="$BASIC_CFLAGS -L/usr/ucblib -DDSOLARIS_UCB=1"
+#		fi
+		;;
+  *)		USE_LIBS="-lpcap $LIBS" ;;
+esac
 
 OBJFILES="api.c process.c fp_tcp.c fp_mtu.c fp_http.c readfp.c"
 
@@ -101,7 +118,7 @@ rm -f COMPILER-WARNINGS 2>/dev/null
 
 echo -n "[*] Checking for a sane build environment... "
 
-if ls -ld ./ | grep -q '^d.......w'; then
+if ls -ld ./ | grep '^d.......w' >/dev/null 2>&1; then
 
   echo "FAIL (bad permissions)"
   echo
@@ -325,6 +342,8 @@ if [ ! -x "$PROGNAME" ]; then
   echo "FAIL"
   echo
   echo "Well, something went horribly wrong, sorry. Here's the output from GCC:"
+  echo
+  echo "$CC $USE_CFLAGS $USE_LDFLAGS '$PROGNAME.c' $OBJFILES -o '$PROGNAME' $USE_LIBS"
   echo
   cat "$TMP.log"
   echo
