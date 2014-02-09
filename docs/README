@@ -125,9 +125,15 @@ verbose packet parsing and signature matching information will be written to
 stderr. This is useful when troubleshooting problems, but that's about it.
 
 The tool should compile cleanly under any reasonably new version of Linux,
-FreeBSD, OpenBSD, MacOS X, and so forth. You can also builtdit on Windows using
-cygwin and winpcap. I have not tested it on all possible varieties of un*x, but
-if there are issues, they should be fairly superficial.
+Solaris, FreeBSD, OpenBSD, MacOS X, and so forth. You can also build it
+on Windows using cygwin and winpcap. I have not tested it on all possible
+varieties of un*x, but if there are issues, they should be fairly superficial.
+
+For recent Solaris in particular (Solaris 10 and later commercial and open
+sourced illumos-based distributions) you can integrate a p0f daemon as an
+SMF service, so that it is automatically started (and restarted in case of
+failures) by the OS, and the orderly startup of the daemon before its callers
+(clients) can be ensured. See p0f-daemon.xml and p0f.sh for more details.
 
 Once you have the binary compiled, you should be aware of the following
 command-line options:
@@ -786,8 +792,8 @@ You should treat the output from this tool as advisory; the fingerprinting can
 be gambled with some minor effort, and it's also possible to evade it altogether
 (e.g. with excessive IP fragmentation or bad TCP checksums). Plan accordingly.
 
-P0f should to be reasonably secure to operate as a daemon. That said, un*x
-users should employ the -u option to drop privileges and chroot() when running
+P0f should be reasonably secure to operate as a daemon. That said, un*x users
+should employ the -u option to drop privileges and chroot() when running
 the tool continuously. This greatly minimizes the consequences of any mishaps -
 and mishaps in C just tend to happen.
 
@@ -892,6 +898,7 @@ including:
   Matthew Dempsky
   Jason DePriest
   Dalibor Dukic
+  Jim Klimov
   Mark Martinec
   Damien Miller
   Josh Newton
