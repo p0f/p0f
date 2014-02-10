@@ -34,18 +34,18 @@
 
 ### Overridables (via config file)
 ### OS User to run the daemon as:
-P0F_RUNAS=p0f
+[ x"$P0F_RUNAS" = x ] && P0F_RUNAS=p0f
 
 ### Data directory which contains the log and UNIX-socket files (below).
 ### While the default "/var/tmp" should do the trick and let the service
 ### run with little hassle, it is probably insecure and should be changed
 ### to a dedicated directory in a particular installation.
-# P0F_DATADIR="/var/p0f"
-P0F_DATADIR="/var/tmp"
+# [ x"$P0F_DATADIR" = x ] && P0F_DATADIR="/var/p0f"
+[ x"$P0F_DATADIR" = x ] && P0F_DATADIR="/var/tmp"
 
 ### The binary to use (should be in the PATH defined below):
-P0F_BIN=p0f
-#P0F_BIN=p0f-debug
+[ x"$P0F_BIN" = x ] && P0F_BIN=p0f
+# [ x"$P0F_BIN" = x ] && P0F_BIN=p0f-debug
 
 ### The basic set of options as provided in the package:
 P0F_OPTIONS_PKG="-u ${P0F_RUNAS} -o ${P0F_DATADIR}/p0f.log -s ${P0F_DATADIR}/p0f.sock"
