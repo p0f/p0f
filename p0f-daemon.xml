@@ -92,7 +92,7 @@
       <service_fmri value='svc:/network/milter-greylist:default'/>
     </dependent>
 -->
-    <exec_method name='start' type='method' exec='/usr/local/bin/p0f.sh -d' timeout_seconds='120'>
+    <exec_method name='start' type='method' exec='/usr/local/bin/p0f.sh start' timeout_seconds='120'>
       <method_context>
             <method_credential
             user='root'
