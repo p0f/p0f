@@ -32,6 +32,10 @@
 //#  warning "SOLARIS=yes"
 #  include <sys/fcntl.h>
 #  include <fcntl.h>
+#  include <sys/ioctl.h>
+#  include <sys/stream.h>
+#  include <sys/dlpi.h>
+#  include <sys/bufmod.h>
 # ifdef SOLARIS_UCB
 #    include "/usr/ucbinclude/sys/file.h"
 # else
@@ -584,6 +588,50 @@ static void prepare_pcap(void) {
       SAYF("[+] Intercepting traffic on interface '%s'.\n", use_iface);
 
     if (!pt) FATAL("pcap_open_live: %s", pcap_err);
+
+#if defined (SOLARIS) || defined(__sun__)
+/*
+ * When libpcap uses BPF we must enable "immediate mode" to
+ * receive frames right away; otherwise the system may
+ * buffer them for us. Solutions below sourced from
+ * WPA supplicant's sources: http://hostap.epitest.fi/wpa_supplicant/
+ * and nmap: http://seclists.org/nmap-dev/2008/q3/284
+ */
+#ifdef BIOCIMMEDIATE
+    {
+	unsigned int on = 1;
+	SAYF("[+] Trying to enable BIOCIMMEDIATE mode for libpcap\n");
+	if (ioctl(pt, BIOCIMMEDIATE, &on) < 0) {
+            FATAL("ioctl() with BIOCIMMEDIATE returned an error (%d): %s",
+                  errno, strerror(errno) );
+	}
+    }
+#endif /* BIOCIMMEDIATE */
+/*
+ * Under Solaris, select() keeps waiting until the next packet,
+ * because it is buffered, so we have to set timeout and
+ * chunk size to zero
+ */
+    {
+	int size_zero = 0;
+	struct timeval time_zero = {0, 0};
+	int temp_fd = pcap_get_selectable_fd(pt);
+
+#ifdef SBIOCSCHUNK
+        SAYF("[+] Trying to enable SBIOCSCHUNK mode for libpcap\n");
+        if (ioctl(temp_fd, SBIOCSCHUNK, &size_zero) < 0)
+            FATAL("ioctl() with SBIOCSCHUNK returned an error (%d): %s",
+                  errno, strerror(errno) );
+#endif
+
+#ifdef SBIOCSTIME
+        SAYF("[+] Trying to enable SBIOCSTIME mode for libpcap\n");
+        if (ioctl(temp_fd, SBIOCSTIME, &time_zero) < 0)
+            FATAL("ioctl() with SBIOCSTIME returned an error (%d): %s",
+                  errno, strerror(errno) );
+#endif
+    }
+#endif /* __sun__ */
 
   }
 
