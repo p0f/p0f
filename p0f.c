@@ -36,8 +36,8 @@
 #    include "/usr/ucbinclude/sys/file.h"
 # else
 #    include <sys/file.h>
+     int flock(int fd, int operation);
 # endif
-   int flock(int fd, int operation);
 #else
 //#  warning "SOLARIS=no"
 #  include <sys/fcntl.h>
