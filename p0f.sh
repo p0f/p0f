@@ -70,14 +70,14 @@ fi
 [ x"$DEBUG" != x ] && echo "=== Running as: `id`"
 chown -R root:root ${P0F_DATADIR}/p0f*
 
-### This ugly block allows to use either P0F_BPF or command-line param
-###, with spaces:
+### This ugly block allows to use either P0F_BPF or command-line param,
+### with spaces:
 IFS="	"
 P0F_BPF="`echo "$P0F_BPF" | sed 's/	/ /g'`"
 CMD_OPT="`echo "$P0F_BIN	$P0F_OPTIONS_PKG	$P0F_OPTIONS" | sed 's/ /	/g'`"
 ##############
 
-### Cal the program:
+### Call the program:
 PATH="`dirname "$0"`:/usr/local/bin:$PATH" \
 LD_LIBRARY_PATH=/usr/ucblib:$LD_LIBRARY_PATH \
 	$CMD_OPT "$@" $P0F_BPF
