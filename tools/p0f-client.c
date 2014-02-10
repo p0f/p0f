@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
   static struct p0f_api_query q;
   static struct p0f_api_response r;
 
-  static struct sockaddr_un sun;
+  static struct sockaddr_un p0fsockstruct;
 
   s32  sock;
   time_t ut;
@@ -117,14 +117,14 @@ int main(int argc, char** argv) {
 
   if (sock < 0) PFATAL("Call to socket() failed.");
 
-  sun.sun_family = AF_UNIX;
+  p0fsockstruct.sun_family = AF_UNIX;
 
-  if (strlen(argv[1]) >= sizeof(sun.sun_path))
+  if (strlen(argv[1]) >= sizeof(p0fsockstruct.sun_path))
     FATAL("API socket filename is too long for sockaddr_un (blame Unix).");
 
-  strcpy(sun.sun_path, argv[1]);
+  strcpy(p0fsockstruct.sun_path, argv[1]);
 
-  if (connect(sock, (struct sockaddr*)&sun, sizeof(sun)))
+  if (connect(sock, (struct sockaddr*)&p0fsockstruct, sizeof(p0fsockstruct)))
     PFATAL("Can't connect to API socket.");
 
   if (write(sock, &q, sizeof(struct p0f_api_query)) !=
