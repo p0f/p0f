@@ -15,7 +15,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
-#include <getopt.h>
+#ifndef DONT_HAVE_GETOPT_H
+#  include <getopt.h>
+#endif
 #include <errno.h>
 #include <dirent.h>
 #include <pwd.h>
@@ -40,8 +42,8 @@
 #    include "/usr/ucbinclude/sys/file.h"
 # else
 #    include <sys/file.h>
-     int flock(int fd, int operation);
 # endif
+   int flock(int fd, int operation);
 #else
 //#  warning "SOLARIS=no"
 #  include <sys/fcntl.h>
@@ -194,30 +196,28 @@ static void usage(void) {
 "Operating mode and output settings:\n"
 "\n"
 "  -f file   - read fingerprint database from 'file' (%s)\n"
-"  -o file   - write information to the specified log file\n"
+"  -o file   - write information to the specified log file\n",
+    FP_FILE
+);
 #ifndef __CYGWIN__
-"  -s name   - answer to API queries at a named unix socket\n"
+ERRORF("  -s name   - answer to API queries at a named unix socket\n");
 #endif /* !__CYGWIN__ */
-"  -u user   - switch to the specified unprivileged account and chroot\n"
+ERRORF("  -u user   - switch to the specified unprivileged account and chroot\n"
 "  -d        - fork into background (requires -o or -s)\n"
 "\n"
 "Performance-related options:\n"
-"\n"
+"\n");
 #ifndef __CYGWIN__
-"  -S limit  - limit number of parallel API connections (%u)\n"
+ERRORF("  -S limit  - limit number of parallel API connections (%u)\n",
+    API_MAX_CONN);
 #endif /* !__CYGWIN__ */
-"  -t c,h    - set connection / host cache age limits (%us,%um)\n"
+ERRORF("  -t c,h    - set connection / host cache age limits (%us,%um)\n"
 "  -m c,h    - cap the number of active connections / hosts (%u,%u)\n"
 "\n"
 "Optional filter expressions (man tcpdump) can be specified in the command\n"
 "line to prevent p0f from looking at incidental network traffic.\n"
 "\n"
 "Problems? You can reach the author at <lcamtuf@coredump.cx>.\n",
-
-    FP_FILE,
-#ifndef __CYGWIN__
-    API_MAX_CONN,
-#endif /* !__CYGWIN__ */
     CONN_MAX_AGE, HOST_IDLE_LIMIT, MAX_CONN,  MAX_HOSTS);
 
   exit(1);

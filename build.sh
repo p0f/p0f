@@ -8,8 +8,12 @@
 # Distributed under the terms and conditions of GNU LGPL.
 #
 
-PROGNAME="p0f"
-VERSION="3.06b"
+[ x"$PROGNAME" = x ] && PROGNAME="p0f"
+[ x"$VERSION" = x ] && VERSION="3.06b"
+
+# Disable Solaris UCB by default: it may break the build until
+# this situation is better researched and debugged
+[ x"$SOLARIS_UCB" = x ] && SOLARIS_UCB=0
 
 echo "Building $PROGNAME-$VERSION for $OSTYPE: $0 $@"
 #set
@@ -31,19 +35,32 @@ case "$OSTYPE" in
 		USE_LIBS="-lwpcap $LIBS"
 		;;
   solaris*)	echo "Detected OS to tweak: Solaris"
-		USE_CFLAGS="$USE_CFLAGS -DSOLARIS=1"
-		BASIC_CFLAGS="$BASIC_CFLAGS -DSOLARIS=1"
+		# In Solaris, getopt() is part of stdio.h, stdlib.h, unistd.h
+		# It is safe to skip getopt.h which is missing on Solaris 8
+		USE_CFLAGS="$USE_CFLAGS -DSOLARIS=1 -DDONT_HAVE_GETOPT_H=1"
+		BASIC_CFLAGS="$BASIC_CFLAGS -DSOLARIS=1 -DDONT_HAVE_GETOPT_H=1"
 		USE_LIBS="-lsocket -lnsl -lpcap $LIBS" 
 		if [ ! -s /usr/include/stdint.h -a -f stdint-replacement.h ]; then
-		    ln -s stdint-replacement.h stdint.h
+		    echo "[+] Enabling local stdint.h to substitute for one missing in the OS"
+		    [ ! -f stdint.h ] && ln -s stdint-replacement.h stdint.h
 		    BASIC_CFLAGS="$BASIC_CFLAGS -I."
 		    USE_CFLAGS="$USE_CFLAGS -I."
 		fi
-#		if [ -f /usr/ucblib/libucb.so -a -d /usr/ucbinclude ]; then
-#		    USE_LIBS="-lucb $USE_LIBS"
-#		    USE_CFLAGS="$USE_CFLAGS -L/usr/ucblib -DDSOLARIS_UCB=1"
-#		    BASIC_CFLAGS="$BASIC_CFLAGS -L/usr/ucblib -DDSOLARIS_UCB=1"
-#		fi
+		if [ -f /usr/ucblib/libucb.so -a -d /usr/ucbinclude -a x"$SOLARIS_UCB" = x1 ]; then
+		    echo "[+] Enabling UCB support (very experimental, can fail the build)"
+		    USE_LIBS="-lucb $USE_LIBS"
+		    USE_CFLAGS="-I/usr/ucbinclude $USE_CFLAGS -L/usr/ucblib -DSOLARIS_UCB=1"
+		    BASIC_CFLAGS="-I/usr/ucbinclude $BASIC_CFLAGS -L/usr/ucblib -DSOLARIS_UCB=1"
+		fi
+		if ! grep isblank /usr/include/ctype.h \
+			/usr/include/iso/ctype*.h \
+			/usr/ucbinclude/{*,*/*}.h \
+			>/dev/null; \
+		then
+		    echo "[+] Overriding missing isblank() with isspace()"
+		    BASIC_CFLAGS="$BASIC_CFLAGS -Disblank=isspace"
+		    USE_CFLAGS="$USE_CFLAGS -Disblank=isspace"
+		fi
 		;;
   *)		USE_LIBS="-lpcap $LIBS" ;;
 esac
