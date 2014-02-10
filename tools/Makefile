@@ -9,7 +9,7 @@
 
 CC      = gcc
 CFLAGS  = -g -ggdb -Wall -Wno-format -funsigned-char
-LDFLAGS =
+LDFLAGS = -lsocket
 TARGETS = p0f-client p0f-sendsyn p0f-sendsyn6
 
 all: $(TARGETS)

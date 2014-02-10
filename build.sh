@@ -8,12 +8,19 @@
 # Distributed under the terms and conditions of GNU LGPL.
 #
 
-PROGNAME="p0f"
-VERSION="3.06b"
+[ x"$PROGNAME" = x ] && PROGNAME="p0f"
+[ x"$VERSION" = x ] && VERSION="3.06b"
+
+# Disable Solaris UCB by default: it may break the build until
+# this situation is better researched and debugged
+[ x"$SOLARIS_UCB" = x ] && SOLARIS_UCB=0
+
+echo "Building $PROGNAME-$VERSION for $OSTYPE: $0 $@"
+#set
 
 test "$CC" = "" && CC="gcc"
 
-BASIC_CFLAGS="-Wall -Wno-format -I/usr/local/include/ \
+BASIC_CFLAGS="-Wall -Wno-format -I/usr/include -I/usr/local/include/ \
               -I/opt/local/include/ -DVERSION=\"$VERSION\" $CFLAGS"
 
 BASIC_LDFLAGS="-L/usr/local/lib/ -L/opt/local/lib $LDFLAGS"
@@ -23,13 +30,40 @@ USE_CFLAGS="-fstack-protector-all -fPIE -D_FORTIFY_SOURCE=2 -g -ggdb \
 
 USE_LDFLAGS="-Wl,-z,relro -pie $BASIC_LDFLAGS"
 
-if [ "$OSTYPE" = "cygwin" ]; then
-  USE_LIBS="-lwpcap $LIBS"
-elif [ "$OSTYPE" = "solaris" ]; then
-  USE_LIBS="-lsocket -lnsl $LIBS"
-else
-  USE_LIBS="-lpcap $LIBS"
-fi
+case "$OSTYPE" in
+  cygwin)	echo "Detected OS to tweak: CygWin"
+		USE_LIBS="-lwpcap $LIBS"
+		;;
+  solaris*)	echo "Detected OS to tweak: Solaris"
+		# In Solaris, getopt() is part of stdio.h, stdlib.h, unistd.h
+		# It is safe to skip getopt.h which is missing on Solaris 8
+		USE_CFLAGS="$USE_CFLAGS -DSOLARIS=1 -DDONT_HAVE_GETOPT_H=1"
+		BASIC_CFLAGS="$BASIC_CFLAGS -DSOLARIS=1 -DDONT_HAVE_GETOPT_H=1"
+		USE_LIBS="-lsocket -lnsl -lpcap $LIBS" 
+		if [ ! -s /usr/include/stdint.h -a -f stdint-replacement.h ]; then
+		    echo "[+] Enabling local stdint.h to substitute for one missing in the OS"
+		    [ ! -f stdint.h ] && ln -s stdint-replacement.h stdint.h
+		    BASIC_CFLAGS="$BASIC_CFLAGS -I."
+		    USE_CFLAGS="$USE_CFLAGS -I."
+		fi
+		if [ -f /usr/ucblib/libucb.so -a -d /usr/ucbinclude -a x"$SOLARIS_UCB" = x1 ]; then
+		    echo "[+] Enabling UCB support (very experimental, can fail the build)"
+		    USE_LIBS="-lucb $USE_LIBS"
+		    USE_CFLAGS="-I/usr/ucbinclude $USE_CFLAGS -L/usr/ucblib -DSOLARIS_UCB=1"
+		    BASIC_CFLAGS="-I/usr/ucbinclude $BASIC_CFLAGS -L/usr/ucblib -DSOLARIS_UCB=1"
+		fi
+		if ! grep isblank /usr/include/ctype.h \
+			/usr/include/iso/ctype*.h \
+			/usr/ucbinclude/{*,*/*}.h \
+			>/dev/null; \
+		then
+		    echo "[+] Overriding missing isblank() with isspace()"
+		    BASIC_CFLAGS="$BASIC_CFLAGS -Disblank=isspace"
+		    USE_CFLAGS="$USE_CFLAGS -Disblank=isspace"
+		fi
+		;;
+  *)		USE_LIBS="-lpcap $LIBS" ;;
+esac
 
 OBJFILES="api.c process.c fp_tcp.c fp_mtu.c fp_http.c readfp.c"
 
@@ -101,7 +135,7 @@ rm -f COMPILER-WARNINGS 2>/dev/null
 
 echo -n "[*] Checking for a sane build environment... "
 
-if ls -ld ./ | grep -q '^d.......w'; then
+if ls -ld ./ | grep '^d.......w' >/dev/null 2>&1; then
 
   echo "FAIL (bad permissions)"
   echo
@@ -325,6 +359,8 @@ if [ ! -x "$PROGNAME" ]; then
   echo "FAIL"
   echo
   echo "Well, something went horribly wrong, sorry. Here's the output from GCC:"
+  echo
+  echo "$CC $USE_CFLAGS $USE_LDFLAGS '$PROGNAME.c' $OBJFILES -o '$PROGNAME' $USE_LIBS"
   echo
   cat "$TMP.log"
   echo

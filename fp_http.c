@@ -507,14 +507,22 @@ static u8* dump_sig(u8 to_srv, struct http_sig* hsig) {
 
   u8* val;
 
+#ifndef snp_neg
+#ifdef SOLARIS
+#define snp_neg _len=1024
+#else
+#define snp_neg FATAL("Whoa, snprintf() fails?!")
+#endif
+#endif
+
 #define RETF(_par...) do { \
     s32 _len = snprintf(NULL, 0, _par); \
-    if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
+    if (_len < 0) snp_neg; \
     ret = DFL_ck_realloc_kb(ret, rlen + _len + 1); \
     snprintf((char*)ret + rlen, _len + 1, _par); \
     rlen += _len; \
   } while (0)
-    
+
   RETF("%u:", hsig->http_ver);
 
   for (i = 0; i < hsig->hdr_cnt; i++) {

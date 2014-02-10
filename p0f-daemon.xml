@@ -1,0 +1,129 @@
+<?xml version='1.0'?>
+<!DOCTYPE service_bundle SYSTEM '/usr/share/lib/xml/dtd/service_bundle.dtd.1'>
+<!--
+	=== LICENSE
+        This manifest is distributed under the following MIT License terms:
+
+	Copyright (c) 2013 Jim Klimov, JSC COS&HT
+	Published at:
+		https://github.com/jimklimov/p0f
+
+	Permission is hereby granted, free of charge, to any person
+	obtaining a copy of this software and associated documentation
+	files (the "Software"), to deal in the Software without
+	restriction, including without limitation the rights to use,
+	copy, modify, merge, publish, distribute, sublicense, and/or sell
+	copies of the Software, and to permit persons to whom the
+	Software is furnished to do so, subject to the following
+	conditions:
+
+	The above copyright notice and this permission notice shall be
+	included in all copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+	OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+	NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+	HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+	WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+	OTHER DEALINGS IN THE SOFTWARE.
+-->
+<!--
+	=== ABOUT
+	This file contains a service manifest for Solaris SMF (service
+	management framework in Solaris 10 and later releases, including
+	OpenSolaris and illumos/OpenIndiana distributions), which allows
+	to automate the startup of a p0f daemon and arrange its dependencies
+	on some system resources as well as ensure that its clients depend
+	on this service for orderly startup (milter-greylist in example below).
+
+	=== INSTALLATION
+	To install, fix the paths and the optional dependent services below,
+	configure the /etc/default/p0f file with variables from p0f.sh script
+	(such as the network device to use, the user to run as, and the data
+	directory for logs and the socket file), and run:
+		# svccfg import p0f-daemon.xml
+		# svcadm enable p0f-daemon
+
+	The service can also be used in local zones, with a reconfiguration
+	required for shared-IP zones (so that aliased NICs may be sniffed):
+	add the privilege set for low-level networking and delegate the shared
+	NIC's device node, for example:
+		# zonecfg -z mailin << EOF
+		set limitpriv=default,priv_net_rawaccess
+		add device
+		  set match=/dev/e1000g0
+		  end
+		verify
+		commit
+		exit
+		EOF
+
+	No reconfiguration is needed for an exclusive-IP zone nor the global
+	zone, this service manifest includes all the needed privileges for
+	the service (valid as of Solaris 10u10 release).
+-->
+<service_bundle type='manifest' name='export'>
+  <service name='network/p0f-daemon' type='service' version='0'>
+    <create_default_instance enabled='false'/>
+    <single_instance/>
+    <dependency name='fs-local' grouping='require_all' restart_on='none' type='service'>
+      <service_fmri value='svc:/system/filesystem/local'/>
+    </dependency>
+    <dependency name='net-loopback' grouping='require_all' restart_on='none' type='service'>
+      <service_fmri value='svc:/network/loopback'/>
+    </dependency>
+    <dependency name='net-physical' grouping='require_all' restart_on='none' type='service'>
+      <service_fmri value='svc:/network/physical'/>
+    </dependency>
+    <dependent name='p0f-daemon_multi-user' grouping='optional_all' restart_on='none'>
+      <service_fmri value='svc:/milestone/multi-user'/>
+    </dependent>
+<!--
+    ### The block below allows a client of p0f, such as milter-greylist, to
+    ### be started only after the p0f daemon successfully initializes, if the
+    ### p0f-daemon service is at all enabled (optional_all), otherwise this
+    ### particular client starts up unimpeded without p0f (and fails to query
+    ### the fingerprinter, but otherwise just works).
+-->
+<!--
+    <dependent name='milter-greylist' grouping='optional_all' restart_on='none'>
+      <service_fmri value='svc:/network/milter-greylist:default'/>
+    </dependent>
+-->
+    <exec_method name='start' type='method' exec='/usr/local/bin/p0f.sh start' timeout_seconds='120'>
+      <method_context>
+            <method_credential
+            user='root'
+            group='root'
+            limit_privileges=':default'
+	    privileges='basic,net_icmpaccess,net_rawaccess,file_chown,file_owner,file_dac_write,proc_setid,proc_chroot'/>
+<!--	### The set of privileges above allows the SMF-ized daemon to access
+	### the low-level networking. Normally SMF services are prohibited
+	### from such intimacy with the OS in order to improve security. -->
+      </method_context>
+    </exec_method>
+    <exec_method name='stop' type='method' exec=':kill' timeout_seconds='60'>
+      <method_context/>
+    </exec_method>
+    <exec_method name='refresh' type='method' exec=':kill' timeout_seconds='180'>
+      <method_context/>
+    </exec_method>
+    <property_group name='general' type='framework'>
+      <propval name='action_authorization' type='astring' value='solaris.smf.manage.milter'/>
+    </property_group>
+    <property_group name='startd' type='framework'>
+      <propval name='ignore_error' type='astring' value='core,signal'/>
+    </property_group>
+    <stability value='Unstable'/>
+    <template>
+      <common_name>
+        <loctext xml:lang='C'>p0f passive fingerprinter service</loctext>
+      </common_name>
+      <documentation>
+        <manpage title='p0f' section='8' manpath='/usr/local/man'/>
+      </documentation>
+    </template>
+  </service>
+</service_bundle>

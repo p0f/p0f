@@ -768,9 +768,17 @@ static u8* dump_sig(struct packet_data* pk, struct tcp_sig* ts, u16 syn_mss) {
   u32 i;
   u8  dist = guess_dist(pk->ttl);
 
+#ifndef snp_neg
+#ifdef SOLARIS
+#define snp_neg _len=1024
+#else
+#define snp_neg FATAL("Whoa, snprintf() fails?!")
+#endif
+#endif
+
 #define RETF(_par...) do { \
     s32 _len = snprintf(NULL, 0, _par); \
-    if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
+    if (_len < 0) snp_neg; \
     ret = DFL_ck_realloc_kb(ret, rlen + _len + 1); \
     snprintf((char*)ret + rlen, _len + 1, _par); \
     rlen += _len; \

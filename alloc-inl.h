@@ -473,10 +473,18 @@ static inline void TRK_ck_free(void* ptr, const char* file,
 
 #endif /* ^!DEBUG_BUILD */
 
+#ifndef snp_neg
+#ifdef SOLARIS
+#define snp_neg _len=1024
+#else
+#define snp_neg FATAL("Whoa, snprintf() fails?!")
+#endif
+#endif
+
 #define alloc_printf(_str...) ({ \
     u8* _tmp; \
     s32 _len = snprintf(NULL, 0, _str); \
-    if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
+    if (_len < 0) snp_neg; \
     _tmp = ck_alloc(_len + 1); \
     snprintf((char*)_tmp, _len + 1, _str); \
     _tmp; \

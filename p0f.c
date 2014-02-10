@@ -15,7 +15,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
-#include <getopt.h>
+#ifndef DONT_HAVE_GETOPT_H
+#  include <getopt.h>
+#endif
 #include <errno.h>
 #include <dirent.h>
 #include <pwd.h>
@@ -28,11 +30,29 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
-#include <sys/fcntl.h>
+#ifdef SOLARIS
+//#  warning "SOLARIS=yes"
+#  include <sys/fcntl.h>
+#  include <fcntl.h>
+#  include <sys/ioctl.h>
+#  include <sys/stream.h>
+#  include <sys/dlpi.h>
+#  include <sys/bufmod.h>
+# ifdef SOLARIS_UCB
+#    include "/usr/ucbinclude/sys/file.h"
+# else
+#    include <sys/file.h>
+# endif
+   int flock(int fd, int operation);
+#else
+//#  warning "SOLARIS=no"
+#  include <sys/fcntl.h>
+#  include <sys/file.h>
+#endif /* !SOLARIS */
 #include <sys/stat.h>
-#include <sys/file.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
+
 
 #include <pcap.h>
 
@@ -51,6 +71,53 @@
 #include "tcp.h"
 #include "fp_http.h"
 #include "p0f.h"
+
+#ifdef SOLARIS
+#ifndef SOLARIS_UCB
+
+#ifndef LOCK_SH
+#define   LOCK_SH   1    /* shared lock */
+#define   LOCK_EX   2    /* exclusive lock */
+#define   LOCK_NB   4    /* don't block when locking */
+#define   LOCK_UN   8    /* unlock */
+#endif
+
+/* http://www.perkin.org.uk/posts/solaris-portability-flock.html */
+int flock(int fd, int op) {
+    int rc = 0;
+
+#if defined(F_SETLK) && defined(F_SETLKW)
+    struct flock fl = {0};
+
+    switch (op & (LOCK_EX|LOCK_SH|LOCK_UN)) {
+    case LOCK_EX:
+	fl.l_type = F_WRLCK;
+	break;
+
+    case LOCK_SH:
+	fl.l_type = F_RDLCK;
+	break;
+
+    case LOCK_UN:
+	fl.l_type = F_UNLCK;
+	break;
+
+    default:
+	errno = EINVAL;
+	return -1;
+    }
+
+    fl.l_whence = SEEK_SET;
+    rc = fcntl(fd, op & LOCK_NB ? F_SETLK : F_SETLKW, &fl);
+
+    if (rc && (errno == EAGAIN))
+	errno = EWOULDBLOCK;
+#endif
+
+    return rc;
+}
+#endif
+#endif
 
 #ifndef PF_INET6
 #  define PF_INET6          10
@@ -129,30 +196,28 @@ static void usage(void) {
 "Operating mode and output settings:\n"
 "\n"
 "  -f file   - read fingerprint database from 'file' (%s)\n"
-"  -o file   - write information to the specified log file\n"
+"  -o file   - write information to the specified log file\n",
+    FP_FILE
+);
 #ifndef __CYGWIN__
-"  -s name   - answer to API queries at a named unix socket\n"
+ERRORF("  -s name   - answer to API queries at a named unix socket\n");
 #endif /* !__CYGWIN__ */
-"  -u user   - switch to the specified unprivileged account and chroot\n"
+ERRORF("  -u user   - switch to the specified unprivileged account and chroot\n"
 "  -d        - fork into background (requires -o or -s)\n"
 "\n"
 "Performance-related options:\n"
-"\n"
+"\n");
 #ifndef __CYGWIN__
-"  -S limit  - limit number of parallel API connections (%u)\n"
+ERRORF("  -S limit  - limit number of parallel API connections (%u)\n",
+    API_MAX_CONN);
 #endif /* !__CYGWIN__ */
-"  -t c,h    - set connection / host cache age limits (%us,%um)\n"
+ERRORF("  -t c,h    - set connection / host cache age limits (%us,%um)\n"
 "  -m c,h    - cap the number of active connections / hosts (%u,%u)\n"
 "\n"
 "Optional filter expressions (man tcpdump) can be specified in the command\n"
 "line to prevent p0f from looking at incidental network traffic.\n"
 "\n"
 "Problems? You can reach the author at <lcamtuf@coredump.cx>.\n",
-
-    FP_FILE,
-#ifndef __CYGWIN__
-    API_MAX_CONN,
-#endif /* !__CYGWIN__ */
     CONN_MAX_AGE, HOST_IDLE_LIMIT, MAX_CONN,  MAX_HOSTS);
 
   exit(1);
@@ -523,6 +588,50 @@ static void prepare_pcap(void) {
       SAYF("[+] Intercepting traffic on interface '%s'.\n", use_iface);
 
     if (!pt) FATAL("pcap_open_live: %s", pcap_err);
+
+#if defined (SOLARIS) || defined(__sun__)
+/*
+ * When libpcap uses BPF we must enable "immediate mode" to
+ * receive frames right away; otherwise the system may
+ * buffer them for us. Solutions below sourced from
+ * WPA supplicant's sources: http://hostap.epitest.fi/wpa_supplicant/
+ * and nmap: http://seclists.org/nmap-dev/2008/q3/284
+ */
+#ifdef BIOCIMMEDIATE
+    {
+	unsigned int on = 1;
+	SAYF("[+] Trying to enable BIOCIMMEDIATE mode for libpcap\n");
+	if (ioctl(pt, BIOCIMMEDIATE, &on) < 0) {
+            FATAL("ioctl() with BIOCIMMEDIATE returned an error (%d): %s",
+                  errno, strerror(errno) );
+	}
+    }
+#endif /* BIOCIMMEDIATE */
+/*
+ * Under Solaris, select() keeps waiting until the next packet,
+ * because it is buffered, so we have to set timeout and
+ * chunk size to zero
+ */
+    {
+	int size_zero = 0;
+	struct timeval time_zero = {0, 0};
+	int temp_fd = pcap_get_selectable_fd(pt);
+
+#ifdef SBIOCSCHUNK
+        SAYF("[+] Trying to enable SBIOCSCHUNK mode for libpcap\n");
+        if (ioctl(temp_fd, SBIOCSCHUNK, &size_zero) < 0)
+            FATAL("ioctl() with SBIOCSCHUNK returned an error (%d): %s",
+                  errno, strerror(errno) );
+#endif
+
+#ifdef SBIOCSTIME
+        SAYF("[+] Trying to enable SBIOCSTIME mode for libpcap\n");
+        if (ioctl(temp_fd, SBIOCSTIME, &time_zero) < 0)
+            FATAL("ioctl() with SBIOCSTIME returned an error (%d): %s",
+                  errno, strerror(errno) );
+#endif
+    }
+#endif /* __sun__ */
 
   }
 
@@ -915,6 +1024,13 @@ poll_again:
 
           if (i < 0) PFATAL("read() on API socket fails despite POLLIN.");
 
+	  if (i == 0) {
+	    pfds[cur].revents |= POLLHUP;
+	    pfds[cur].revents |= POLLERR;
+            DEBUG("[#] API connection on fd[%d]=%d has ended: read returned zero.\n", 
+		cur, pfds[cur].fd);
+	  }
+
           ctable[cur]->in_off += i;
 
           /* Query in place? Compute response and prepare to send it back. */
@@ -923,8 +1039,7 @@ poll_again:
 
             handle_query(&ctable[cur]->in_data, &ctable[cur]->out_data);
             pfds[cur].events = (POLLOUT | POLLERR | POLLHUP);
-
-          }
+	  }
 
       }
 
