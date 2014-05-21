@@ -1,3 +1,16 @@
+Version 3.07b:
+--------------
+
+Bug fixes:
+
+  - Improvement to API handling to avoid FATAL() on short API reads & writes.
+
+  - Minor bug fix to IP parsing in one of the companion utilities.
+
+Improvements:
+
+  - New signatures.
+
 Version 3.06b:
 --------------
 

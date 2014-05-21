@@ -481,7 +481,7 @@ static void prepare_pcap(void) {
     if (!use_iface) {
 
       /* See the earlier note on libpcap SEGV - same problem here.
-         Also, this retusns something stupid on Windows, but hey... */
+         Also, this returns something stupid on Windows, but hey... */
      
       if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT)
         use_iface = (u8*)pcap_lookupdev(pcap_err);
@@ -823,6 +823,30 @@ poll_again:
 
     for (cur = 0; cur < pfd_count; cur++) {
 
+      if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
+
+        case 0:
+
+          FATAL("Packet capture interface is down.");
+
+        case 1:
+
+          FATAL("API socket is down.");
+
+        default:
+
+          /* Shut down API connection and free its state. */
+
+          DEBUG("[#] API connection on fd %d closed.\n", pfds[cur].fd);
+
+          close(pfds[cur].fd);
+          ctable[cur]->fd = -1;
+ 
+          pfd_count = regen_pfds(pfds, ctable);
+          goto poll_again;
+
+      }
+
       if (pfds[cur].revents & POLLOUT) switch (cur) {
 
         case 0: case 1:
@@ -928,29 +952,6 @@ poll_again:
 
       }
 
-      if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
-
-        case 0:
-
-          FATAL("Packet capture interface is down.");
-
-        case 1:
-
-          FATAL("API socket is down.");
-
-        default:
-
-          /* Shut down API connection and free its state. */
-
-          DEBUG("[#] API connection on fd %d closed.\n", pfds[cur].fd);
-
-          close(pfds[cur].fd);
-          ctable[cur]->fd = -1;
- 
-          pfd_count = regen_pfds(pfds, ctable);
-          goto poll_again;
-
-      }
 
       /* Processed all reported updates already? If so, bail out early. */
 
@@ -1099,7 +1100,7 @@ int main(int argc, char** argv) {
     case 'p':
     
       if (set_promisc)
-        FATAL("Even more promiscuous? People will call me slutty!");
+        FATAL("Even more promiscuous? People will start talking!");
 
       set_promisc = 1;
       break;

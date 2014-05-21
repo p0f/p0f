@@ -41,7 +41,7 @@ static void parse_addr4(char* str, u8* ret) {
   if (sscanf(str, "%u.%u.%u.%u", &a1, &a2, &a3, &a4) != 4)
     FATAL("Malformed IPv4 address.");
 
-  if (a1 > 255 || a2 > 255 || a3 > 255 || a3 > 255)
+  if (a1 > 255 || a2 > 255 || a3 > 255 || a4 > 255)
     FATAL("Malformed IPv4 address.");
 
   ret[0] = a1;

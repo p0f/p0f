@@ -748,7 +748,7 @@ static u32 get_flow_bucket(struct packet_data* pk) {
     bucket = hash32(pk->src, 16, hash_seed) ^ hash32(pk->dst, 16, hash_seed);
   }
 
-  bucket = hash32(&pk->sport, 2, hash_seed) ^ hash32(&pk->dport, 2, hash_seed);
+  bucket ^= hash32(&pk->sport, 2, hash_seed) ^ hash32(&pk->dport, 2, hash_seed);
 
   return bucket % FLOW_BUCKETS;
 

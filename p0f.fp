@@ -92,7 +92,11 @@ sig   = 16436
 ; Linux
 ; -----
 
-label = s:unix:Linux:3.x
+label = s:unix:Linux:3.11 and newer
+sig   = *:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0
+sig   = *:64:0:*:mss*20,7:mss,sok,ts,nop,ws:df,id+:0
+
+label = s:unix:Linux:3.1-3.10
 sig   = *:64:0:*:mss*10,4:mss,sok,ts,nop,ws:df,id+:0
 sig   = *:64:0:*:mss*10,5:mss,sok,ts,nop,ws:df,id+:0
 sig   = *:64:0:*:mss*10,6:mss,sok,ts,nop,ws:df,id+:0
@@ -212,8 +216,10 @@ label = s:unix:Mac OS X:10.x
 sig   = *:64:0:*:65535,1:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 sig   = *:64:0:*:65535,3:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 
-label = s:unix:iOS:iPhone or iPad
+label = s:unix:MacOS X:10.9 or newer (sometimes iPhone or iPad)
 sig   = *:64:0:*:65535,4:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
+
+label = s:unix:iOS:iPhone or iPad
 sig   = *:64:0:*:65535,2:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 
 ; Catch-all rules:
@@ -225,7 +231,7 @@ sig   = *:64:0:*:65535,*:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0
 ; FreeBSD
 ; -------
 
-label = s:unix:FreeBSD:9.x
+label = s:unix:FreeBSD:9.x or newer
 sig   = *:64:0:*:65535,6:mss,nop,ws,sok,ts:df,id+:0
 
 label = s:unix:FreeBSD:8.x
@@ -585,9 +591,12 @@ sig   = *:Host,User-Agent,Accept=[xml;q=0.9,*/*;q=0.8],Accept-Language,Accept-En
 ; MSIE
 ; ----
 
+; MSIE 11 no longer sends the 'MSIE' part in U-A, but we don't consider
+; U-A to be a robust signal for fingerprinting, so no dice.
+
 label = s:!:MSIE:8 or newer
 sys   = Windows
-sig   = 1:Accept=[*/*],?Referer,?Accept-Language,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset,UA-CPU:(compatible; MSIE
+sig   = 1:Accept=[*/*],?Referer,?Accept-Language,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset,UA-CPU:Trident/
 sig   = 1:Accept=[*/*],?Referer,?Accept-Language,Accept-Encoding=[gzip, deflate],User-Agent,Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset:(compatible; MSIE
 
 label = s:!:MSIE:7
@@ -605,17 +614,29 @@ sig   = 1:Accept=[*/*],Connection=[Keep-Alive],Host,?Pragma=[no-cache],?Range,?R
 ; Chrome
 ; ------
 
-label = s:!:Chrome:11 or newer
+label = s:!:Chrome:11.x to 26.x
 sys   = Windows,@unix
 sig   = 1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3]:: Chrom
 sig   = 1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[UTF-8,*;q=0.5]:: Chrom
 sig   = 1:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3],Connection=[keep-alive]::Chrom
 
+label = s:!:Chrome:27.x or newer
+sys   = Windows,@unix
+sig   = 1:Host,Connection=[keep-alive],Accept=[*/*],User-Agent,?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom
+
 ; -----
 ; Opera
 ; -----
 
-label = s:!:Opera:11.x or newer
+label = s:!:Opera:19.x or newer
+sys   = Windows,@unix
+sig   = 1:Host,Connection=[keep-alive],Accept=[*/*;q=0.8],User-Agent,Accept-Encoding=[gzip,deflate,lzma,sdch],Accept-Language=[;q=0.]:Accept-Charset,Keep-Alive:OPR/
+
+label = s:!:Opera:15.x-18.x
+sys   = Windows,@unix
+sig   = 1:Host,Connection=[keep-alive],Accept=[*/*;q=0.8],User-Agent,Accept-Encoding=[gzip, deflate],Accept-Language=[;q=0.]:Accept-Charset,Keep-Alive:OPR/
+
+label = s:!:Opera:11.x-14.x
 sys   = Windows,@unix
 sig   = 1:User-Agent,Host,Accept=[*/*;q=0.1],?Accept-Language=[;q=0.],Accept-Encoding=[gzip, deflate],Connection=[Keep-Alive]:Accept-Charset,X-OperaMini-Phone-UA:) Presto/
 
@@ -650,7 +671,11 @@ sig   = 1:Host,Connection=[keep-alive],Accept=[,*/*;q=0.8],User-Agent,Accept-Enc
 ; Safari
 ; ------
 
-label = s:!:Safari:5.1 or newer
+label = s:!:Safari:7 or newer
+sys   = @unix
+sig   = *:Host,Accept-Encoding=[gzip, deflate],Connection=[keep-alive],Accept=[*/*],User-Agent,Accept-Language,?Referer,?DNT:Accept-Charset,Keep-Alive:KHTML, like Gecko)
+
+label = s:!:Safari:5.1-6
 sys   = Windows,@unix
 sig   = *:Host,User-Agent,Accept=[*/*],?Referer,Accept-Language,Accept-Encoding=[gzip, deflate],Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)
 sig   = *:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip, deflate],Accept-Language,Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)
