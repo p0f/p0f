@@ -23,6 +23,7 @@
 #include <poll.h>
 #include <time.h>
 #include <locale.h>
+#include <jansson.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -64,6 +65,8 @@
 #  define O_LARGEFILE 0
 #endif /* !O_LARGEFILE */
 
+static json_t *json_record = NULL;
+
 static u8 *use_iface,                   /* Interface to listen on             */
           *orig_rule,                   /* Original filter rule               */
           *switch_user,                 /* Target username                    */
@@ -91,9 +94,10 @@ static FILE* lf;                        /* Log file stream                    */
 static u8 stop_soon;                    /* Ctrl-C or so pressed?              */
 
 u8 daemon_mode;                         /* Running in daemon mode?            */
+u8 json_mode;                           /* Log in JSON?                       */
 
 static u8 set_promisc;                  /* Use promiscuous mode?              */
-         
+
 static pcap_t *pt;                      /* PCAP capture thingy                */
 
 s32 link_type;                          /* PCAP link type                     */
@@ -334,16 +338,25 @@ void start_observation(char* keyword, u8 field_cnt, u8 to_srv,
 
     strftime((char*)tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
 
-    LOGF("[%s] mod=%s|cli=%s/%u|",tmp, keyword, addr_to_str(f->client->addr,
+    if (json_mode) {
+        json_record = json_object();
+        json_object_set_new(json_record, "timestamp", json_string((char *)tmp));
+        json_object_set_new(json_record, "mod", json_string((char *)keyword));
+        json_object_set_new(json_record, "client_ip", json_string((char *)addr_to_str(f->client->addr, f->client->ip_ver)));
+        json_object_set_new(json_record, "server_ip", json_string((char *)addr_to_str(f->server->addr, f->server->ip_ver)));
+        json_object_set_new(json_record, "client_port", json_integer(f->cli_port));
+        json_object_set_new(json_record, "server_port", json_integer(f->srv_port));
+        json_object_set_new(json_record, "subject", json_string((char *)(to_srv ? "cli" : "srv")));
+    } else {
+      LOGF("[%s] mod=%s|cli=%s/%u|",tmp, keyword, addr_to_str(f->client->addr,
          f->client->ip_ver), f->cli_port);
 
-    LOGF("srv=%s/%u|subj=%s", addr_to_str(f->server->addr, f->server->ip_ver),
+      LOGF("srv=%s/%u|subj=%s", addr_to_str(f->server->addr, f->server->ip_ver),
          f->srv_port, to_srv ? "cli" : "srv");
-
+    }
   }
 
   obs_fields = field_cnt;
-
 }
 
 
@@ -356,7 +369,13 @@ void add_observation_field(char* key, u8* value) {
   if (!daemon_mode)
     SAYF("| %-8s = %s\n", key, value ? value : (u8*)"???");
 
-  if (log_file) LOGF("|%s=%s", key, value ? value : (u8*)"???");
+  if (log_file) {
+    if (json_mode) {
+      json_object_set_new(json_record, key, json_string( (char *)(value ? value : (u8*)"???") ));
+    } else {
+      LOGF("|%s=%s", key, value ? value : (u8*)"???");
+    }
+  }
 
   obs_fields--;
 
@@ -364,7 +383,15 @@ void add_observation_field(char* key, u8* value) {
 
     if (!daemon_mode) SAYF("|\n`----\n\n");
 
-    if (log_file) LOGF("\n");
+    if (log_file){
+
+      if (json_mode) {
+        json_dumpf(json_record, lf, 0);
+        json_decref(json_record);
+      }
+
+      LOGF("\n");
+    }
 
   }
 
@@ -1023,7 +1050,7 @@ int main(int argc, char** argv) {
   if (getuid() != geteuid())
     FATAL("Please don't make me setuid. See README for more.\n");
 
-  while ((r = getopt(argc, argv, "+LS:df:i:m:o:pr:s:t:u:")) != -1) switch (r) {
+  while ((r = getopt(argc, argv, "+LS:djf:i:m:o:pr:s:t:u:")) != -1) switch (r) {
 
     case 'L':
 
@@ -1074,6 +1101,14 @@ int main(int argc, char** argv) {
 
       use_iface = (u8*)optarg;
 
+      break;
+
+    case 'j':
+
+      if (json_mode)
+        FATAL("Double werewolf mode not supported yet.");
+
+      json_mode = 1;
       break;
 
     case 'm':
