@@ -95,6 +95,7 @@ static u8 stop_soon;                    /* Ctrl-C or so pressed?              */
 
 u8 daemon_mode;                         /* Running in daemon mode?            */
 u8 json_mode;                           /* Log in JSON?                       */
+u8 line_buffered_mode;                  /* Line Buffered Mode?                */
 
 static u8 set_promisc;                  /* Use promiscuous mode?              */
 
@@ -134,6 +135,8 @@ static void usage(void) {
 "\n"
 "  -f file   - read fingerprint database from 'file' (%s)\n"
 "  -o file   - write information to the specified log file\n"
+"  -j        - Log in JSON format.\n"
+"  -l        - Line buffered mode for logging to output file.\n"
 #ifndef __CYGWIN__
 "  -s name   - answer to API queries at a named unix socket\n"
 #endif /* !__CYGWIN__ */
@@ -391,6 +394,9 @@ void add_observation_field(char* key, u8* value) {
       }
 
       LOGF("\n");
+      if (line_buffered_mode) {
+        fflush(lf);
+      }
     }
 
   }
@@ -1050,7 +1056,7 @@ int main(int argc, char** argv) {
   if (getuid() != geteuid())
     FATAL("Please don't make me setuid. See README for more.\n");
 
-  while ((r = getopt(argc, argv, "+LS:djf:i:m:o:pr:s:t:u:")) != -1) switch (r) {
+  while ((r = getopt(argc, argv, "+LS:djlf:i:m:o:pr:s:t:u:")) != -1) switch (r) {
 
     case 'L':
 
@@ -1109,6 +1115,14 @@ int main(int argc, char** argv) {
         FATAL("Double werewolf mode not supported yet.");
 
       json_mode = 1;
+      break;
+
+    case 'l':
+
+      if (line_buffered_mode)
+        FATAL("Double werewolf mode not supported yet.");
+
+      line_buffered_mode = 1;
       break;
 
     case 'm':
