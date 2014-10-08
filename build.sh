@@ -28,7 +28,7 @@ if [ "$OSTYPE" = "cygwin" ]; then
 elif [ "$OSTYPE" = "solaris" ]; then
   USE_LIBS="-lsocket -lnsl $LIBS"
 else
-  USE_LIBS="-lpcap $LIBS"
+  USE_LIBS="-lpcap -ljansson $LIBS"
 fi
 
 OBJFILES="api.c process.c fp_tcp.c fp_mtu.c fp_http.c readfp.c"
