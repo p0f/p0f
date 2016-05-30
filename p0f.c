@@ -69,8 +69,9 @@ static u8 *use_iface,                   /* Interface to listen on             */
           *switch_user,                 /* Target username                    */
           *log_file,                    /* Binary log file name               */
           *api_sock,                    /* API socket file name               */
-          *fp_file,                     /* Location of p0f.fp                 */
-          *read_file;                   /* File to read pcap data from        */
+          *fp_file;                     /* Location of p0f.fp                 */
+
+u8* read_file;                          /* File to read pcap data from        */
 
 static u32
   api_max_conn    = API_MAX_CONN;       /* Maximum number of API connections  */
