@@ -1,3 +1,8 @@
+Version 3.08b:
+--------------
+
+  - An awful fix for a packet loss bug with some VMs.
+
 Version 3.07b:
 --------------
 
