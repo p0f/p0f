@@ -21,7 +21,7 @@
 #endif /* ^DEBUG_BUILD */
 
 #define ERRORF(x...)  fprintf(stderr, x)
-#define SAYF(x...)    printf(x)
+#define SAYF(x...)    fprintf(stderr, x)
 
 #define WARN(x...) do { \
     ERRORF("[!] WARNING: " x); \
