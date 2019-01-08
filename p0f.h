@@ -17,6 +17,7 @@
 extern u8  daemon_mode;
 extern s32 link_type;
 extern u32 max_conn, max_hosts, conn_max_age, host_idle_limit, hash_seed;
+extern u8* read_file;
 
 void start_observation(char* keyword, u8 field_cnt, u8 to_srv,
                        struct packet_flow* pf);

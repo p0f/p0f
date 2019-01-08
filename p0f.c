@@ -69,8 +69,9 @@ static u8 *use_iface,                   /* Interface to listen on             */
           *switch_user,                 /* Target username                    */
           *log_file,                    /* Binary log file name               */
           *api_sock,                    /* API socket file name               */
-          *fp_file,                     /* Location of p0f.fp                 */
-          *read_file;                   /* File to read pcap data from        */
+          *fp_file;                     /* Location of p0f.fp                 */
+
+u8* read_file;                          /* File to read pcap data from        */
 
 static u32
   api_max_conn    = API_MAX_CONN;       /* Maximum number of API connections  */
@@ -510,10 +511,10 @@ static void prepare_pcap(void) {
 
 #else 
 
-    /* PCAP timeouts tend to be broken, so we'll use a minimum value
+    /* PCAP timeouts tend to be broken, so we'll use a very small value
        and rely on select() instead. */
 
-    pt = pcap_open_live((char*)use_iface, SNAPLEN, set_promisc, 1, pcap_err);
+    pt = pcap_open_live((char*)use_iface, SNAPLEN, set_promisc, 5, pcap_err);
 
 #endif /* ^__CYGWIN__ */
 
@@ -805,12 +806,15 @@ static void live_event_loop(void) {
     s32 pret, i;
     u32 cur;
 
-    /* We use a 250 ms timeout to keep Ctrl-C responsive without resortng to
-       silly sigaction hackery or unsafe signal handler code. */
+    /* We had a 250 ms timeout to keep Ctrl-C responsive without resortng
+       to silly sigaction hackery or unsafe signal handler code. Unfortunately,
+       if poll() timeout is much longer than pcap timeout, we end up with
+       dropped packets on VMs. Seems like a kernel bug, but for now, this
+       loop is a bit busier than it needs to be... */
 
 poll_again:
 
-    pret = poll(pfds, pfd_count, 250);
+    pret = poll(pfds, pfd_count, 10);
 
     if (pret < 0) {
       if (errno == EINTR) break;

@@ -620,9 +620,17 @@ sig   = 1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-E
 sig   = 1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[UTF-8,*;q=0.5]:: Chrom
 sig   = 1:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3],Connection=[keep-alive]::Chrom
 
-label = s:!:Chrome:27.x or newer
+label = s:!:Chrome:27.x to 42.x
 sys   = Windows,@unix
 sig   = 1:Host,Connection=[keep-alive],Accept=[*/*],User-Agent,?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom
+
+label = s:!:Chrome:43.x or 50.x
+sys   = Windows,@unix
+sig   = 1:Host,Connection=[keep-alive],Accept=[*/*],User-Agent,?Referer,Accept-Encoding=[gzip, deflate, sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom
+
+label = s:!:Chrome:51.x or newer
+sys   = Windows,@unix
+sig   = 1:Host,Connection=[keep-alive],Upgrade-Insecure-Requests=[1],User-Agent,Accept=[*/*],Accept-Encoding=[gzip, deflate, sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom
 
 ; -----
 ; Opera
