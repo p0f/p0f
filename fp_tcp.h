@@ -86,7 +86,7 @@ void tcp_register_sig(u8 to_srv, u8 generic, s32 sig_class, u32 sig_name,
                       u8* val, u32 line_no);
 
 struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
-                                struct packet_flow* f);
+                                struct packet_flow* f, char* pkt_sig);
 
 void fingerprint_sendsyn(struct packet_data* pk);
 

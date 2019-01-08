@@ -308,21 +308,21 @@ static void open_api(void) {
 /* Open log entry. */
 
 void start_observation(char* keyword, u8 field_cnt, u8 to_srv,
-                       struct packet_flow* f) {
+                       struct packet_flow* pf) {
 
   if (obs_fields) FATAL("Premature end of observation.");
 
   if (!daemon_mode) {
 
-    SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
-         f->cli_port);
-    SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(f->server->addr, f->client->ip_ver),
-         f->srv_port, keyword);
+    SAYF(".-[ %s/%u -> ", addr_to_str(pf->client->addr, pf->client->ip_ver),
+         pf->cli_port);
+    SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(pf->server->addr, pf->client->ip_ver),
+         pf->srv_port, keyword);
 
     SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server", 
-         addr_to_str(to_srv ? f->client->addr :
-         f->server->addr, f->client->ip_ver),
-         to_srv ? f->cli_port : f->srv_port);
+         addr_to_str(to_srv ? pf->client->addr :
+         pf->server->addr, pf->client->ip_ver),
+         to_srv ? pf->cli_port : pf->srv_port);
 
   }
 
@@ -335,11 +335,11 @@ void start_observation(char* keyword, u8 field_cnt, u8 to_srv,
 
     strftime((char*)tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
 
-    LOGF("[%s] mod=%s|cli=%s/%u|",tmp, keyword, addr_to_str(f->client->addr,
-         f->client->ip_ver), f->cli_port);
+    LOGF("[%s] mod=%s|cli=%s/%u|",tmp, keyword, addr_to_str(pf->client->addr,
+         pf->client->ip_ver), pf->cli_port);
 
-    LOGF("srv=%s/%u|subj=%s", addr_to_str(f->server->addr, f->server->ip_ver),
-         f->srv_port, to_srv ? "cli" : "srv");
+    LOGF("srv=%s/%u|subj=%s", addr_to_str(pf->server->addr, pf->server->ip_ver),
+         pf->srv_port, to_srv ? "cli" : "srv");
 
   }
 
@@ -482,7 +482,7 @@ static void prepare_pcap(void) {
     if (!use_iface) {
 
       /* See the earlier note on libpcap SEGV - same problem here.
-         Also, this returns something stupid on Windows, but hey... */
+         Also, this retusns something stupid on Windows, but hey... */
      
       if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT)
         use_iface = (u8*)pcap_lookupdev(pcap_err);
@@ -827,30 +827,6 @@ poll_again:
 
     for (cur = 0; cur < pfd_count; cur++) {
 
-      if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
-
-        case 0:
-
-          FATAL("Packet capture interface is down.");
-
-        case 1:
-
-          FATAL("API socket is down.");
-
-        default:
-
-          /* Shut down API connection and free its state. */
-
-          DEBUG("[#] API connection on fd %d closed.\n", pfds[cur].fd);
-
-          close(pfds[cur].fd);
-          ctable[cur]->fd = -1;
- 
-          pfd_count = regen_pfds(pfds, ctable);
-          goto poll_again;
-
-      }
-
       if (pfds[cur].revents & POLLOUT) switch (cur) {
 
         case 0: case 1:
@@ -956,6 +932,29 @@ poll_again:
 
       }
 
+      if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
+
+        case 0:
+
+          FATAL("Packet capture interface is down.");
+
+        case 1:
+
+          FATAL("API socket is down.");
+
+        default:
+
+          /* Shut down API connection and free its state. */
+
+          DEBUG("[#] API connection on fd %d closed.\n", pfds[cur].fd);
+
+          close(pfds[cur].fd);
+          ctable[cur]->fd = -1;
+ 
+          pfd_count = regen_pfds(pfds, ctable);
+          goto poll_again;
+
+      }
 
       /* Processed all reported updates already? If so, bail out early. */
 
@@ -1022,7 +1021,7 @@ int main(int argc, char** argv) {
 
   setlinebuf(stdout);
 
-  SAYF("--- p0f " VERSION " by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n");
+  SAYF("--- p0f"  VERSION  " by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n");
 
   if (getuid() != geteuid())
     FATAL("Please don't make me setuid. See README for more.\n");
@@ -1104,7 +1103,7 @@ int main(int argc, char** argv) {
     case 'p':
     
       if (set_promisc)
-        FATAL("Even more promiscuous? People will start talking!");
+        FATAL("Even more promiscuous? People will call me slutty!");
 
       set_promisc = 1;
       break;
