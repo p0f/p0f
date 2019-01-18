@@ -1362,7 +1362,7 @@ static void flow_dispatch(struct packet_data* pk) {
         check_ts_tcp(1, pk, f);
 	f->next_cli_seq += pk->pay_len;
 
-	if(syn_data && f->request){
+	if(f->request){
 	  sprintf(fp_sig,"%s%s",syn_data,f->request);
 	  SAYF("%s\n",fp_sig);
 	  list_len = list_len + strlen(fp_sig);
@@ -1425,12 +1425,8 @@ static void flow_dispatch(struct packet_data* pk) {
 
   }
 
-  if(fp_sig != NULL){
-    //SAYF("%s",fp_sig);
+  if(fp_sig != NULL)
     free(fp_sig);
-  }
-
-  //C_PY();
 
 }
 
