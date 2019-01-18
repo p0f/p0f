@@ -307,21 +307,21 @@ static void open_api(void) {
 /* Open log entry. */
 
 void start_observation(char* keyword, u8 field_cnt, u8 to_srv,
-                       struct packet_flow* pf) {
+                       struct packet_flow* f) {
 
   if (obs_fields) FATAL("Premature end of observation.");
 
   if (!daemon_mode) {
 
-    SAYF(".-[ %s/%u -> ", addr_to_str(pf->client->addr, pf->client->ip_ver),
-         pf->cli_port);
-    SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(pf->server->addr, pf->client->ip_ver),
-         pf->srv_port, keyword);
+    SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
+         f->cli_port);
+    SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(f->server->addr, f->client->ip_ver),
+         f->srv_port, keyword);
 
     SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server", 
-         addr_to_str(to_srv ? pf->client->addr :
-         pf->server->addr, pf->client->ip_ver),
-         to_srv ? pf->cli_port : pf->srv_port);
+         addr_to_str(to_srv ? f->client->addr :
+         f->server->addr, f->client->ip_ver),
+         to_srv ? f->cli_port : f->srv_port);
 
   }
 
@@ -334,11 +334,11 @@ void start_observation(char* keyword, u8 field_cnt, u8 to_srv,
 
     strftime((char*)tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
 
-    LOGF("[%s] mod=%s|cli=%s/%u|",tmp, keyword, addr_to_str(pf->client->addr,
-         pf->client->ip_ver), pf->cli_port);
+    LOGF("[%s] mod=%s|cli=%s/%u|",tmp, keyword, addr_to_str(f->client->addr,
+         f->client->ip_ver), f->cli_port);
 
-    LOGF("srv=%s/%u|subj=%s", addr_to_str(pf->server->addr, pf->server->ip_ver),
-         pf->srv_port, to_srv ? "cli" : "srv");
+    LOGF("srv=%s/%u|subj=%s", addr_to_str(f->server->addr, f->server->ip_ver),
+         f->srv_port, to_srv ? "cli" : "srv");
 
   }
 
@@ -481,7 +481,7 @@ static void prepare_pcap(void) {
     if (!use_iface) {
 
       /* See the earlier note on libpcap SEGV - same problem here.
-         Also, this retusns something stupid on Windows, but hey... */
+         Also, this returns something stupid on Windows, but hey... */
      
       if (!access("/sys/class/net", R_OK | X_OK) || errno == ENOENT)
         use_iface = (u8*)pcap_lookupdev(pcap_err);
@@ -510,10 +510,10 @@ static void prepare_pcap(void) {
 
 #else 
 
-    /* PCAP timeouts tend to be broken, so we'll use a minimum value
+    /* PCAP timeouts tend to be broken, so we'll use a very small value
        and rely on select() instead. */
 
-    pt = pcap_open_live((char*)use_iface, SNAPLEN, set_promisc, 1, pcap_err);
+    pt = pcap_open_live((char*)use_iface, SNAPLEN, set_promisc, 5, pcap_err);
 
 #endif /* ^__CYGWIN__ */
 
@@ -805,12 +805,15 @@ static void live_event_loop(void) {
     s32 pret, i;
     u32 cur;
 
-    /* We use a 250 ms timeout to keep Ctrl-C responsive without resortng to
-       silly sigaction hackery or unsafe signal handler code. */
+    /* We had a 250 ms timeout to keep Ctrl-C responsive without resortng
+       to silly sigaction hackery or unsafe signal handler code. Unfortunately,
+       if poll() timeout is much longer than pcap timeout, we end up with
+       dropped packets on VMs. Seems like a kernel bug, but for now, this
+       loop is a bit busier than it needs to be... */
 
 poll_again:
 
-    pret = poll(pfds, pfd_count, 250);
+    pret = poll(pfds, pfd_count, 10);
 
     if (pret < 0) {
       if (errno == EINTR) break;
