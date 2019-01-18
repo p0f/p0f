@@ -213,5 +213,4 @@ struct host_data* lookup_host(u8* addr, u8 ip_ver);
 
 void destroy_all_hosts(void);
 
-
 #endif /* !_HAVE_PROCESS_H */

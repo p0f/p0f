@@ -827,6 +827,30 @@ poll_again:
 
     for (cur = 0; cur < pfd_count; cur++) {
 
+      if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
+
+        case 0:
+
+          FATAL("Packet capture interface is down.");
+
+        case 1:
+
+          FATAL("API socket is down.");
+
+        default:
+
+          /* Shut down API connection and free its state. */
+
+          DEBUG("[#] API connection on fd %d closed.\n", pfds[cur].fd);
+
+          close(pfds[cur].fd);
+          ctable[cur]->fd = -1;
+
+          pfd_count = regen_pfds(pfds, ctable);
+          goto poll_again;
+
+      }
+      
       if (pfds[cur].revents & POLLOUT) switch (cur) {
 
         case 0: case 1:
@@ -932,30 +956,6 @@ poll_again:
 
       }
 
-      if (pfds[cur].revents & (POLLERR | POLLHUP)) switch (cur) {
-
-        case 0:
-
-          FATAL("Packet capture interface is down.");
-
-        case 1:
-
-          FATAL("API socket is down.");
-
-        default:
-
-          /* Shut down API connection and free its state. */
-
-          DEBUG("[#] API connection on fd %d closed.\n", pfds[cur].fd);
-
-          close(pfds[cur].fd);
-          ctable[cur]->fd = -1;
- 
-          pfd_count = regen_pfds(pfds, ctable);
-          goto poll_again;
-
-      }
-
       /* Processed all reported updates already? If so, bail out early. */
 
       if (pfds[cur].revents && !--pret) break;
@@ -1021,7 +1021,7 @@ int main(int argc, char** argv) {
 
   setlinebuf(stdout);
 
-  SAYF("--- p0f"  VERSION  " by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n");
+  SAYF("--- p0f " VERSION " by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n");
 
   if (getuid() != geteuid())
     FATAL("Please don't make me setuid. See README for more.\n");
@@ -1103,7 +1103,7 @@ int main(int argc, char** argv) {
     case 'p':
     
       if (set_promisc)
-        FATAL("Even more promiscuous? People will call me slutty!");
+        FATAL("Even more promiscuous? People will start talking!");
 
       set_promisc = 1;
       break;

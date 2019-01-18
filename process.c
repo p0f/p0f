@@ -591,7 +591,7 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
           goto abort_options;
         }
 
-	if (*data != 4) {
+        if (*data != 4) {
           DEBUG("[#] MSS option expected to have 4 bytes, not %u.\n", *data);
           pk.quirks |= QUIRK_OPT_BAD;
         }
@@ -612,8 +612,8 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
           goto abort_options;
         }
 
-	if (*data != 3) {
-          DEBUG("[#] MSS option expected to have 3 bytes, not %u.\n", *data);
+        if (*data != 3) {
+          DEBUG("[#] WS option expected to have 3 bytes, not %u.\n", *data);
           pk.quirks |= QUIRK_OPT_BAD;
         }
 
@@ -635,7 +635,7 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
           goto abort_options;
         }
 
-	if (*data != 2) {
+        if (*data != 2) {
           DEBUG("[#] SACKOK option expected to have 2 bytes, not %u.\n", *data);
           pk.quirks |= QUIRK_OPT_BAD;
         }
@@ -649,7 +649,7 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
         /* SACK is a variable-length option of 10 to 34 bytes. Because we don't
            know the size any better, we need to bail out if it looks wonky. */
 
-	if (data == opt_end) {
+        if (data == opt_end) {
           DEBUG("[#] SACK option without room for length field.");
           goto abort_options;
         }
@@ -673,13 +673,12 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
 
         /* Timestamp is a ten-byte option with specified size. */
 
-	if (data + 9 > opt_end) {
+        if (data + 9 > opt_end) {
           DEBUG("[#] TStamp option would end past end of header (%u left).\n",
                 opt_end - data);
           goto abort_options;
         }
-        
-	if (*data != 10) {
+        if (*data != 10) {
           DEBUG("[#] TStamp option expected to have 10 bytes, not %u.\n",
                 *data);
           pk.quirks |= QUIRK_OPT_BAD;
@@ -706,13 +705,13 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
 
         /* Unknown option, presumably with specified size. */
 
-	if (data == opt_end) {
+        if (data == opt_end) {
           DEBUG("[#] Unknown option 0x%02x without room for length field.",
                 data[-1]);
           goto abort_options;
-        }        
+        }
 
-	if (*data < 2 || *data > 40) {
+        if (*data < 2 || *data > 40) {
           DEBUG("[#] Unknown option 0x%02x has invalid length %u.\n",
                 data[-1], *data);
           goto abort_options;
@@ -1247,7 +1246,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
       }
 
-      // This is about as far as we want to go with p0f-sendsyn. 
+      /* This is about as far as we want to go with p0f-sendsyn. */
 
       if (f->sendsyn) {
 
@@ -1419,7 +1418,7 @@ static void flow_dispatch(struct packet_data* pk) {
       }
 
       break;
-    
+
     default:
 
       WARN("Huh. Unexpected packet type 0x%02x in flow_dispatch().", pk->tcp_type);
