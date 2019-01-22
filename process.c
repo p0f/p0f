@@ -1131,6 +1131,30 @@ lookup_next:
 
 }
 
+void replace_escape(char* src_data, char* result){
+	//char cp_str[length+1];
+	char *p,*tmp;
+	int i,tmplen=0;
+
+	//result = src_data;
+
+	strcpy(result,src_data);
+	//printf("エスケープ文字を検索中...\n");
+
+	while((p=strstr(result,"\r\n"))){
+		*p = '\0';
+		p+=strlen("\r\n");
+		tmplen = strlen(p)+1;
+		tmp = (char*)malloc(tmplen);
+		strcpy(tmp,p);
+		strcat(result,",");
+		strcat(result,tmp);
+		free(tmp);
+	}
+
+	//src_data = result;
+	//return src_data;
+}
 
 /* Go through host and flow cache, expire outdated items. */
 
@@ -1364,8 +1388,14 @@ static void flow_dispatch(struct packet_data* pk) {
 
 	if(f->request){
 	  sprintf(fp_sig,"%s%s",syn_data,f->request);
-	  SAYF("%s\n",fp_sig);
+
+	  char http_req[strlen(fp_sig)+1];	/* store the query after running a function of replace_escape */
+	  replace_escape(fp_sig,http_req);	/* delete the charactor of escape */
+
+	  SAYF("%s\n",http_req);
+
 	  list_len = list_len + strlen(fp_sig);
+
 	  memset(syn_data,'\0',sizeof(syn_data));
 	}
 
