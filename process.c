@@ -1091,7 +1091,7 @@ static struct packet_flow* create_flow_from_syn(struct packet_data* pk) {
 
 /* Look up an existing flow. */
 
-static struct packet_flow* lookup_flow(struct packet_data* pk, u8* to_srv) {
+static struct packet_flow* lookup_flow(struct packet_data* pk, u8* to_srv, u32* f_num) {
 
   u32 bucket = get_flow_bucket(pk);
   struct packet_flow* f = flow_b[bucket];
@@ -1108,6 +1108,7 @@ static struct packet_flow* lookup_flow(struct packet_data* pk, u8* to_srv) {
         !memcmp(pk->dst, f->server->addr, (pk->ip_ver == IP_VER4) ? 4 : 16)) {
 
       *to_srv = 1;
+      *f_num = bucket;
       return f;
 
     }
@@ -1131,29 +1132,31 @@ lookup_next:
 
 }
 
-void replace_escape(char* src_data, char* result){
+void replace_escape(char* src_data){
 	//char cp_str[length+1];
 	char *p,*tmp;
-	int i,tmplen=0;
+	int tmplen=0;
 
 	//result = src_data;
+	p=src_data;
 
-	strcpy(result,src_data);
+	//strcpy(result,src_data);
 	//printf("エスケープ文字を検索中...\n");
 
-	while((p=strstr(result,"\r\n"))){
+	while((p=strstr(src_data,"\r\n"))){
 		*p = '\0';
 		p+=strlen("\r\n");
 		tmplen = strlen(p)+1;
 		tmp = (char*)malloc(tmplen);
 		strcpy(tmp,p);
-		strcat(result,",");
-		strcat(result,tmp);
+		strcat(src_data,",");
+		strcat(src_data,tmp);
 		free(tmp);
 	}
 
 	//src_data = result;
 	//return src_data;
+	return;
 }
 
 /* Go through host and flow cache, expire outdated items. */
@@ -1193,13 +1196,16 @@ static void flow_dispatch(struct packet_data* pk) {
   u8 to_srv = 0;
   u8 need_more = 0;
   char* fp_sig;
+  char* temp;
   char* request;
   static char syn_data[256] = "";
   int syn_len = 0;
   char* sig_list;
   int list_len = 0;
+  static u32 before_fn = 0;
+  u32 flow_num = 0;
 
-  fp_sig = (char *)malloc(2048);
+  fp_sig = (char *)malloc(4096);
   if(fp_sig == NULL) return;
 
 
@@ -1210,7 +1216,7 @@ static void flow_dispatch(struct packet_data* pk) {
         addr_to_str(pk->dst, pk->ip_ver), pk->dport, pk->tcp_type,
         pk->pay_len);
     
-  f = lookup_flow(pk, &to_srv);
+  f = lookup_flow(pk, &to_srv,&flow_num);
 
   switch (pk->tcp_type) {
 
@@ -1334,6 +1340,9 @@ static void flow_dispatch(struct packet_data* pk) {
 
        }
 
+       if(fp_sig != NULL)
+    	free(fp_sig);
+
        memset(syn_data,'\0',sizeof(syn_data));
        break;
 
@@ -1387,14 +1396,23 @@ static void flow_dispatch(struct packet_data* pk) {
 	f->next_cli_seq += pk->pay_len;
 
 	if(f->request){
-	  sprintf(fp_sig,"%s%s",syn_data,f->request);
+	  if(strlen(syn_data) != 0){
+	    sprintf(fp_sig,"%s%s",syn_data,f->request);
+	    replace_escape(fp_sig);
+	    SAYF("%s\n",fp_sig);
+	    before_fn = flow_num;
+	  }else if(before_fn == flow_num){
+	    sprintf(fp_sig,"AND %s",f->request);
+            replace_escape(fp_sig);
+            SAYF("%s\n",fp_sig);
+	  }
 
-	  char http_req[strlen(fp_sig)+1];	/* store the query after running a function of replace_escape */
-	  replace_escape(fp_sig,http_req);	/* delete the charactor of escape */
+	  //char http_req[strlen(fp_sig)+1];	/* store the query after running a function of replace_escape */
+	  //replace_escape(fp_sig);		/* delete the charactor of escape */
 
-	  SAYF("%s\n",http_req);
+	  //SAYF("%s\n",fp_sig);
 
-	  list_len = list_len + strlen(fp_sig);
+	  //list_len = list_len + strlen(fp_sig);
 
 	  memset(syn_data,'\0',sizeof(syn_data));
 	}
@@ -1455,8 +1473,8 @@ static void flow_dispatch(struct packet_data* pk) {
 
   }
 
-  if(fp_sig != NULL)
-    free(fp_sig);
+  /*if(fp_sig != NULL)
+    free(fp_sig);*/
 
 }
 
