@@ -1400,8 +1400,9 @@ static void flow_dispatch(struct packet_data* pk) {
 	    sprintf(fp_sig,"%s%s",syn_data,f->request);
 	    replace_escape(fp_sig);
 	    SAYF("%s\n",fp_sig);
-	    before_fn = flow_num;
-	  }else if(before_fn == flow_num){
+	    //before_fn = flow_num;
+	    SAYF("savebefore: %ld\n",before_fn);
+	  }else{
 	    sprintf(fp_sig,"AND %s",f->request);
             replace_escape(fp_sig);
             SAYF("%s\n",fp_sig);
