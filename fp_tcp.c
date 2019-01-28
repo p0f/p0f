@@ -1198,7 +1198,6 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
             m->flavor ? m->flavor : (u8*)"");*/
     if(!(m->class_id == -1 || f->sendsyn)){
 	    sprintf(os_name,"%s%s",fp_os_names[m->name_id],m->flavor ? m->flavor : (u8*)"");
-	    //SAYF("  %s %s\n",fp_os_names[m->name_id],m->flavor ? m->flavor : (u8*)"");
     }
 
   } else {
@@ -1223,8 +1222,6 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   //add_observation_field("params", dump_flags(pk, sig));
 
   //add_observation_field("raw_sig", dump_sig(pk, sig, f->syn_mss));
-
-  //pkt_sig = dump_sig(pk, sig, f->syn_mss);
  
   if(to_srv){
 	sprintf(srcIP,"%s",addr_to_str(f->client->addr, f->client->ip_ver));
@@ -1232,8 +1229,6 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   	sprintf(pkt_sig,"src %s:%u,dst %s:%u,sig %s,os %s,",
 			srcIP,f->cli_port,dstIP,f->srv_port,dump_sig(pk, sig, f->syn_mss),os_name);
   }
-
-  //SAYF("%s",pkt_sig);
 
   if (pk->tcp_type == TCP_SYN) f->syn_mss = pk->mss;
 

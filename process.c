@@ -1091,7 +1091,7 @@ static struct packet_flow* create_flow_from_syn(struct packet_data* pk) {
 
 /* Look up an existing flow. */
 
-static struct packet_flow* lookup_flow(struct packet_data* pk, u8* to_srv, u32* f_num) {
+static struct packet_flow* lookup_flow(struct packet_data* pk, u8* to_srv) {
 
   u32 bucket = get_flow_bucket(pk);
   struct packet_flow* f = flow_b[bucket];
@@ -1108,7 +1108,6 @@ static struct packet_flow* lookup_flow(struct packet_data* pk, u8* to_srv, u32* 
         !memcmp(pk->dst, f->server->addr, (pk->ip_ver == IP_VER4) ? 4 : 16)) {
 
       *to_srv = 1;
-      *f_num = bucket;
       return f;
 
     }
@@ -1133,15 +1132,10 @@ lookup_next:
 }
 
 void replace_escape(char* src_data){
-	//char cp_str[length+1];
 	char *p,*tmp;
 	int tmplen=0;
 
-	//result = src_data;
 	p=src_data;
-
-	//strcpy(result,src_data);
-	//printf("エスケープ文字を検索中...\n");
 
 	while((p=strstr(src_data,"\r\n"))){
 		*p = '\0';
@@ -1154,8 +1148,6 @@ void replace_escape(char* src_data){
 		free(tmp);
 	}
 
-	//src_data = result;
-	//return src_data;
 	return;
 }
 
@@ -1192,22 +1184,10 @@ static void flow_dispatch(struct packet_data* pk) {
 
   struct packet_flow* f;
   struct tcp_sig* tsig;
-  struct tcp_sig* synack_tsig;
   u8 to_srv = 0;
   u8 need_more = 0;
-  char* fp_sig;
-  char* temp;
-  char* request;
   static char syn_data[256] = "";
-  int syn_len = 0;
-  char* sig_list;
-  int list_len = 0;
-  static u32 before_fn = 0;
-  u32 flow_num = 0;
-
-  fp_sig = (char *)malloc(4096);
-  if(fp_sig == NULL) return;
-
+  static char fp_sig[MAX_FLOW_DATA];		/* MAX_FLOW_DATA: Maximum req size = 8192 */
 
   DEBUG("[#] Received TCP packet: %s/%u -> ",
         addr_to_str(pk->src, pk->ip_ver), pk->sport);
@@ -1216,7 +1196,7 @@ static void flow_dispatch(struct packet_data* pk) {
         addr_to_str(pk->dst, pk->ip_ver), pk->dport, pk->tcp_type,
         pk->pay_len);
     
-  f = lookup_flow(pk, &to_srv,&flow_num);
+  f = lookup_flow(pk, &to_srv);
 
   switch (pk->tcp_type) {
 
@@ -1234,7 +1214,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
       f = create_flow_from_syn(pk);
 
-      tsig = fingerprint_tcp(1, pk, f,fp_sig);
+      tsig = fingerprint_tcp(1, pk, f, syn_data);
 
       /* We don't want to do any further processing on generic non-OS
          signatures (e.g. NMap). The easiest way to guarantee that is to 
@@ -1260,11 +1240,6 @@ static void flow_dispatch(struct packet_data* pk) {
 
       }
 
-      syn_len = strlen(fp_sig);
-      syn_data[0] = '\0';
-      strncpy(syn_data,fp_sig,syn_len);
-      syn_data[syn_len] = '\0';
-
       break;
 
     case TCP_SYN | TCP_ACK:
@@ -1280,7 +1255,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
       if (f->sendsyn) {
 
-        fingerprint_tcp(0, pk, f,fp_sig);
+        fingerprint_tcp(0, pk, f,syn_data);
         destroy_flow(f);
         return;
 
@@ -1306,11 +1281,10 @@ static void flow_dispatch(struct packet_data* pk) {
 
       f->acked = 1;
 
-      tsig = fingerprint_tcp(0, pk, f,fp_sig);
+      tsig = fingerprint_tcp(0, pk, f,syn_data);
 
       // SYN from real OS, SYN+ACK from a client stack. Weird, but whatever. 
 
-      //SAYF("%s\n",fp_sig);
       if (!tsig) {
 
         destroy_flow(f);
@@ -1340,10 +1314,10 @@ static void flow_dispatch(struct packet_data* pk) {
 
        }
 
-       if(fp_sig != NULL)
-    	free(fp_sig);
+       SAYF("close fp_sig\n");
 
        memset(syn_data,'\0',sizeof(syn_data));
+       memset(fp_sig,'\0',sizeof(fp_sig));
        break;
 
     case TCP_ACK:
@@ -1397,23 +1371,16 @@ static void flow_dispatch(struct packet_data* pk) {
 
 	if(f->request){
 	  if(strlen(syn_data) != 0){
+	    SAYF("open fp_sig\n");
 	    sprintf(fp_sig,"%s%s",syn_data,f->request);
-	    replace_escape(fp_sig);
+	    replace_escape(fp_sig);				/* delete the charactor of escape */
 	    SAYF("%s\n",fp_sig);
-	    //before_fn = flow_num;
-	    SAYF("savebefore: %ld\n",before_fn);
 	  }else{
-	    sprintf(fp_sig,"AND %s",f->request);
-            replace_escape(fp_sig);
+	    strcat(fp_sig,(char *)f->request);
+            replace_escape(fp_sig);				/* delete the charactor of escape */
             SAYF("%s\n",fp_sig);
+	    memset(fp_sig,'\0',sizeof(fp_sig));
 	  }
-
-	  //char http_req[strlen(fp_sig)+1];	/* store the query after running a function of replace_escape */
-	  //replace_escape(fp_sig);		/* delete the charactor of escape */
-
-	  //SAYF("%s\n",fp_sig);
-
-	  //list_len = list_len + strlen(fp_sig);
 
 	  memset(syn_data,'\0',sizeof(syn_data));
 	}
@@ -1473,9 +1440,6 @@ static void flow_dispatch(struct packet_data* pk) {
       WARN("Huh. Unexpected packet type 0x%02x in flow_dispatch().", pk->tcp_type);
 
   }
-
-  /*if(fp_sig != NULL)
-    free(fp_sig);*/
 
 }
 
