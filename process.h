@@ -215,4 +215,6 @@ void destroy_all_hosts(void);
 
 void replace_escape(char* src_data);	/* The function to replace escape symbol */
 
+void query_to_json(char* src_data, int sum_data);       /* The function to convert p0f query into json data */
+
 #endif /* !_HAVE_PROCESS_H */
