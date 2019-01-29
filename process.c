@@ -1416,7 +1416,7 @@ static void flow_dispatch(struct packet_data* pk) {
 	if(f->request){
 	  if(strlen(syn_data) != 0){
 	    query_to_json((char *)f->request,json_data);
-	    sprintf(fp_sig,"{%sreqests[{%s",syn_data,json_data);
+	    sprintf(fp_sig,"{%s\"reqests\":[{%s",syn_data,json_data);
 	    strcat(fp_sig,"}");
 	  }else{
 	    query_to_json((char *)f->request,json_data);
