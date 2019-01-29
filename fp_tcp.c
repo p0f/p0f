@@ -1226,7 +1226,7 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   if(to_srv){
 	sprintf(srcIP,"%s",addr_to_str(f->client->addr, f->client->ip_ver));
 	sprintf(dstIP,"%s",addr_to_str(f->server->addr, f->client->ip_ver));
-  	sprintf(pkt_sig,"src %s:%u,dst %s:%u,sig %s,os %s,",
+  	sprintf(pkt_sig,"\"src\":\"%s:%u\",\"dst\":\"%s:%u\",\"sig\":\"%s\",\"os\":\"%s\",",
 			srcIP,f->cli_port,dstIP,f->srv_port,dump_sig(pk, sig, f->syn_mss),os_name);
   }
 
