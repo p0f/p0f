@@ -1134,7 +1134,7 @@ lookup_next:
 
 void query_to_json(char* src_data, char* res_data){
 	
-	char *t_src,*tmp;
+	char *t_src;
 	int count=0,i=0;
 
 	t_src = src_data;
@@ -1158,7 +1158,9 @@ void query_to_json(char* src_data, char* res_data){
                 strcat(res_data,h[i].name);
                 strcat(res_data,"\":\"");
                 strcat(res_data,h[i].value);
-                strcat(res_data,"\",");
+                strcat(res_data,"\"");
+		if(i+1 == count) break;
+		strcat(res_data,",");
         }
 	
 }
@@ -1355,7 +1357,8 @@ static void flow_dispatch(struct packet_data* pk) {
 
        }
        if(strlen(fp_sig) > 0)
-         SAYF("%s\n",fp_sig);
+         strcat(fp_sig,"]}");
+         SAYF("%s",fp_sig);
 
        memset(syn_data,'\0',sizeof(syn_data));
        memset(fp_sig,'\0',sizeof(fp_sig));
@@ -1413,10 +1416,13 @@ static void flow_dispatch(struct packet_data* pk) {
 	if(f->request){
 	  if(strlen(syn_data) != 0){
 	    query_to_json((char *)f->request,json_data);
-	    sprintf(fp_sig,"%s%s",syn_data,json_data);
+	    sprintf(fp_sig,"{%sreqests[{%s",syn_data,json_data);
+	    strcat(fp_sig,"}");
 	  }else{
 	    query_to_json((char *)f->request,json_data);
+	    strcat(fp_sig,",{");
 	    strcat(fp_sig,json_data);
+	    strcat(fp_sig,"}");
 	  }
 
 	  memset(syn_data,'\0',sizeof(syn_data));
