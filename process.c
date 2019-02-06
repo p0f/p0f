@@ -1357,7 +1357,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
        }
        if(strlen(fp_sig) > 0)
-         strcat(fp_sig,"]}");
+         strcat(fp_sig,"]}\n");
          SAYF("%s",fp_sig);
 
        memset(syn_data,'\0',sizeof(syn_data));

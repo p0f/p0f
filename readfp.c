@@ -395,7 +395,7 @@ void read_config(u8* fname) {
 
   if (!st.st_size) { 
     close(f);
-    goto end_fp_read;
+    //goto end_fp_read;
   }
 
   cur = data = ck_alloc(st.st_size + 1);
@@ -438,13 +438,13 @@ void read_config(u8* fname) {
 
   ck_free(data);
 
-end_fp_read:  
+//end_fp_read:  
 
-  if (!sig_cnt)
+  /*if (!sig_cnt)
     SAYF("[!] No signatures found in '%s'.\n", fname);
   else 
     SAYF("[+] Loaded %u signature%s from '%s'.\n", sig_cnt,
-         sig_cnt == 1 ? "" : "s", fname);
+         sig_cnt == 1 ? "" : "s", fname);*/
 
 }
 

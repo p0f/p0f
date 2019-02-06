@@ -207,8 +207,8 @@ static void close_spare_fds(void) {
 
   closedir(d);
 
-  if (closed)
-    SAYF("[+] Closed %u file descriptor%s.\n", closed, closed == 1 ? "" : "s" );
+  /*if (closed)
+    SAYF("[+] Closed %u file descriptor%s.\n", closed, closed == 1 ? "" : "s" );*/
 
 }
 
@@ -246,7 +246,7 @@ static void open_log(void) {
 
   if (!lf) FATAL("fdopen() on '%s' failed.", log_file);
 
-  SAYF("[+] Log file '%s' opened for writing.\n", log_file);
+  //SAYF("[+] Log file '%s' opened for writing.\n", log_file);
 
 }
 
@@ -299,8 +299,8 @@ static void open_api(void) {
 
   for (i = 0; i < api_max_conn; i++) api_cl[i].fd = -1;
 
-  SAYF("[+] Listening on API socket '%s' (max %u clients).\n",
-       api_sock, api_max_conn);
+  //SAYF("[+] Listening on API socket '%s' (max %u clients).\n",
+  //     api_sock, api_max_conn);
 
 }
 
@@ -391,7 +391,7 @@ static void list_interfaces(void) {
 
   if (!dev) FATAL("Can't find any interfaces. Maybe you need to be root?");
 
-  SAYF("\n-- Available interfaces --\n");
+  //SAYF("\n-- Available interfaces --\n");
 
   do {
 
@@ -475,7 +475,7 @@ static void prepare_pcap(void) {
 
     if (!pt) FATAL("pcap_open_offline: %s", pcap_err);
 
-    SAYF("[+] Will read pcap data from file '%s'.\n", read_file);
+    //SAYF("[+] Will read pcap data from file '%s'.\n", read_file);
 
   } else {
 
@@ -518,10 +518,10 @@ static void prepare_pcap(void) {
 
 #endif /* ^__CYGWIN__ */
 
-    if (!orig_iface)
+    /*if (!orig_iface)
       SAYF("[+] Intercepting traffic on default interface '%s'.\n", use_iface);
     else
-      SAYF("[+] Intercepting traffic on interface '%s'.\n", use_iface);
+      SAYF("[+] Intercepting traffic on interface '%s'.\n", use_iface);*/
 
     if (!pt) FATAL("pcap_open_live: %s", pcap_err);
 
@@ -603,14 +603,14 @@ retry_no_vlan:
 
   if (!orig_rule) {
 
-    SAYF("[+] Default packet filtering configured%s.\n",
-         vlan_support ? " [+VLAN]" : "");
+    /*SAYF("[+] Default packet filtering configured%s.\n",
+         vlan_support ? " [+VLAN]" : "");*/
 
   } else {
 
-    SAYF("[+] Custom filtering rule enabled: %s%s\n",
+    /*SAYF("[+] Custom filtering rule enabled: %s%s\n",
          orig_rule ? orig_rule : (u8*)"tcp",
-         vlan_support ? " [+VLAN]" : "");
+         vlan_support ? " [+VLAN]" : "");*/
 
     ck_free(final_rule);
 
@@ -659,8 +659,8 @@ static void drop_privs(void) {
   if (getegid() != pw->pw_gid || geteuid() != pw->pw_uid)
     FATAL("Inconsistent euid / egid after dropping privs.");
 
-  SAYF("[+] Privileges dropped: uid %u, gid %u, root '%s'.\n",
-       pw->pw_uid, pw->pw_gid, pw->pw_dir);
+  /*SAYF("[+] Privileges dropped: uid %u, gid %u, root '%s'.\n",
+       pw->pw_uid, pw->pw_gid, pw->pw_dir);*/
 
 }
 
@@ -707,10 +707,10 @@ static void fork_off(void) {
 
   } else {
 
-    SAYF("[+] Daemon process created, PID %u (stderr %s).\n", npid,
-      isatty(2) ? "not kept" : "kept as-is");
+    /*SAYF("[+] Daemon process created, PID %u (stderr %s).\n", npid,
+      isatty(2) ? "not kept" : "kept as-is");*/
 
-    SAYF("\nGood luck, you're on your own now!\n");
+    //SAYF("\nGood luck, you're on your own now!\n");
 
     exit(0);
 
@@ -799,7 +799,7 @@ static void live_event_loop(void) {
   pfd_count = regen_pfds(pfds, ctable);
 
   if (!daemon_mode) 
-    SAYF("[+] Entered main event loop.\n\n");
+    //SAYF("[+] Entered main event loop.\n\n");
 
   while (!stop_soon) {
 
@@ -970,7 +970,7 @@ poll_again:
 #else
 
   if (!daemon_mode) 
-    SAYF("[+] Entered main event loop.\n\n");
+    //SAYF("[+] Entered main event loop.\n\n");
 
   /* Ugh. The only way to keep SIGINT and other signals working is to have this
      funny loop with dummy I/O every 250 ms. Signal handlers don't get called
@@ -1000,7 +1000,7 @@ poll_again:
 static void offline_event_loop(void) {
 
   if (!daemon_mode) 
-    SAYF("[+] Processing capture data.\n\n");
+    //SAYF("[+] Processing capture data.\n\n");
 
   while (!stop_soon)  {
 
@@ -1021,7 +1021,7 @@ int main(int argc, char** argv) {
 
   setlinebuf(stdout);
 
-  SAYF("--- p0f " VERSION " by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n");
+  //SAYF("--- p0f " VERSION " by Michal Zalewski <lcamtuf@coredump.cx> ---\n\n");
 
   if (getuid() != geteuid())
     FATAL("Please don't make me setuid. See README for more.\n");
@@ -1183,12 +1183,12 @@ int main(int argc, char** argv) {
 #ifdef __CYGWIN__
 
     if (switch_user) 
-      SAYF("[!] Note: under cygwin, -u is largely useless.\n");
+      //SAYF("[!] Note: under cygwin, -u is largely useless.\n");
 
 #else
 
-    if (!switch_user) 
-      SAYF("[!] Consider specifying -u in daemon mode (see README).\n");
+    /*if (!switch_user) 
+      SAYF("[!] Consider specifying -u in daemon mode (see README).\n");*/
 
 #endif /* ^__CYGWIN__ */
 
@@ -1226,8 +1226,8 @@ int main(int argc, char** argv) {
 
   if (read_file) offline_event_loop(); else live_event_loop();
 
-  if (!daemon_mode)
-    SAYF("\nAll done. Processed %llu packets.\n", packet_cnt);
+  /*if (!daemon_mode)
+    SAYF("\nAll done. Processed %llu packets.\n", packet_cnt);*/
 
 #ifdef DEBUG_BUILD
   destroy_all_hosts();
