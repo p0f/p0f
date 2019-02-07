@@ -1228,7 +1228,7 @@ static void flow_dispatch(struct packet_data* pk) {
   struct tcp_sig* tsig;
   u8 to_srv = 0;
   u8 need_more = 0;
-  static char syn_data[256] = "";
+  static char syn_data[512] = "";
   static char fp_sig[MAX_FLOW_DATA];		/* MAX_FLOW_DATA: Maximum req size = 8192 */
   char json_data[MAX_FLOW_DATA]={'\0'};
 

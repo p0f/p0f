@@ -28,6 +28,8 @@
 
 #include "fp_tcp.h"
 
+void split_sig(char* src, char* res);		/* Sprit SYN signature every value */
+
 /* TCP signature buckets: */
 
 static struct tcp_sig_record* sigs[2][SIG_BUCKETS];
@@ -1164,6 +1166,8 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   struct tcp_sig_record* m;
 
   char *srcIP,*dstIP,*os_name;
+  char sig_tmp[128]="";
+  char sig_que[256]="";
 
   srcIP = (char *)malloc(32);
   dstIP = (char *)malloc(32);
@@ -1179,23 +1183,10 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   if (pk->tcp_type == TCP_SYN && pk->win == SPECIAL_WIN &&
       pk->mss == SPECIAL_MSS) f->sendsyn = 1;
 
-  if (to_srv){
-    //start_observation(f->sendsyn ? "sendsyn probe" : "syn", 4, 1, f);
-    /*SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
-         f->cli_port);
-    SAYF("%s/%u ]-\n", addr_to_str(f->server->addr, f->client->ip_ver),
-         f->srv_port);*/
-  }
-  /*else
-    start_observation(f->sendsyn ? "sendsyn response" : "syn+ack", 4, 0, f);*/
-  
   tcp_find_match(to_srv, sig, 0, f->syn_mss);
 
   if ((m = sig->matched)) {
 
-    /*OBSERVF((m->class_id == -1 || f->sendsyn) ? "app" : "os", "%s%s%s",
-            fp_os_names[m->name_id], m->flavor ? " " : "",
-            m->flavor ? m->flavor : (u8*)"");*/
     if(!(m->class_id == -1 || f->sendsyn)){
 	    sprintf(os_name,"%s%s",fp_os_names[m->name_id],m->flavor ? m->flavor : (u8*)"");
     }
@@ -1224,10 +1215,12 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   //add_observation_field("raw_sig", dump_sig(pk, sig, f->syn_mss));
  
   if(to_srv){
+	sprintf(sig_tmp,"%s",dump_sig(pk,sig,f->syn_mss));
+  	split_sig(sig_tmp,sig_que);
 	sprintf(srcIP,"%s",addr_to_str(f->client->addr, f->client->ip_ver));
 	sprintf(dstIP,"%s",addr_to_str(f->server->addr, f->client->ip_ver));
-  	sprintf(pkt_sig,"\"src\":\"%s:%u\",\"dst\":\"%s:%u\",\"sig\":\"%s\",\"os\":\"%s\",",
-			srcIP,f->cli_port,dstIP,f->srv_port,dump_sig(pk, sig, f->syn_mss),os_name);
+  	sprintf(pkt_sig,"\"src\":\"%s:%u\",\"dst\":\"%s:%u\",%s,\"os\":\"%s\",",
+			srcIP,f->cli_port,dstIP,f->srv_port,sig_que,os_name);
   }
 
   if (pk->tcp_type == TCP_SYN) f->syn_mss = pk->mss;
@@ -1255,6 +1248,33 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
 	  free(os_name);
   return sig;
 
+}
+
+void split_sig(char* src, char* res){
+	
+	int i=0;
+	char* pt;
+	char param[8][12] = {"ver","ittl","olen","mss","wsize,scale","olayout","quirks","pclass"};
+
+	pt = strtok(src,":");
+	strcat(res,"\"");
+	strcat(res,param[i++]);
+	strcat(res,"\":\"");
+	strcat(res,pt);
+	strcat(res,"\",");
+	while(pt != NULL){
+		pt = strtok(NULL,":");
+		if(pt != NULL){
+			strcat(res,"\"");
+        		strcat(res,param[i++]);
+        		strcat(res,"\":\"");
+        		strcat(res,pt);
+        		strcat(res,"\"");
+			if(i==8) break;
+			strcat(res,",");
+		}
+	}
+	return;
 }
 
 
