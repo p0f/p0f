@@ -778,11 +778,11 @@ static u8* dump_sig(struct packet_data* pk, struct tcp_sig* ts, u16 syn_mss) {
 
   if (dist > MAX_DIST) {
 
-    RETF("\"ver\":\"%u\",\"ttl\":%u,\"hops\":-1,\"olen\":%u,", pk->ip_ver, pk->ttl, pk->ip_opt_len);
+    RETF("\"ts\":\"%u\",\"ver\":\"%u\",\"ttl\":%u,\"hops\":-1,\"olen\":%u,", ts->ts1,pk->ip_ver, pk->ttl, pk->ip_opt_len);
 
   } else {
 
-    RETF("\"ver\":\"%u\",\"ttl\":%u,\"hops\":%u,\"olen\":%u,", pk->ip_ver, pk->ttl, dist, pk->ip_opt_len);
+    RETF("\"ts\":\"%u\",\"ver\":\"%u\",\"ttl\":%u,\"hops\":%u,\"olen\":%u,", ts->ts1,pk->ip_ver, pk->ttl, dist, pk->ip_opt_len);
 
   }
 

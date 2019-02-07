@@ -61,6 +61,8 @@ static void flow_dispatch(struct packet_data* pk);
 static void nuke_flows(u8 silent);
 static void expire_cache(void);
 
+void change_char(char* key);		/* Change charctor size and escape charctor(ex.'A' -> 'a', '-' -> '_') */
+
 /* Get unix time in milliseconds. */
 
 u64 get_unix_time_ms(void) {
@@ -1155,6 +1157,7 @@ void query_to_json(char* src_data, char* res_data){
 
 	for(i=0;i<count;i++){
                 strcat(res_data,"\"");
+		change_char(h[i].name);
                 strcat(res_data,h[i].name);
                 strcat(res_data,"\":\"");
                 strcat(res_data,h[i].value);
@@ -1188,6 +1191,24 @@ void split_data(char* src, char* pointer, int cnt, struct http_header *query){
 		(query+i)->name = list[i];
 		(query+i)->value = sp;
 		i++;
+	}
+
+	return;
+}
+
+void change_char(char* key){
+	
+	char* tmp;
+
+	tmp = key;
+	while(*tmp != '\0'){
+		if(*tmp >= 'A' && *tmp <= 'Z'){
+			*tmp += 32;
+		}
+		else if(*tmp == '-'){
+			*tmp += 50;
+		}
+		tmp++;
 	}
 
 	return;
