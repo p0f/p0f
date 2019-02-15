@@ -194,10 +194,18 @@ struct packet_flow {
   u8  http_gotresp1;                    /* Got initial line of a response?    */
 
   struct http_sig http_tmp;             /* Temporary signature                */
+  /*struct syn_sig  syn_tmp;*/		/* Temporary SYN signature            */
 
 };
 
-struct http_header{			/* struct of HTTP request header */
+struct syn_data{			/* struct of SYN signature every packet flows */
+	
+	char data[512];			/* SYN signature 	*/
+	u32  bucket;			/* unique flow ID 	*/
+
+};
+
+struct http_header{			/* struct of HTTP request header      */
         char* name;
         char* value;
 };
