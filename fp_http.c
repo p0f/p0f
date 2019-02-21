@@ -75,7 +75,7 @@ static s32 lookup_hdr(u8* name, u32 len, u8 create) {
   u32  i = hbh_cnt[bucket];
 
   while (i--) {
-    if (!memcmp(hdr_names[*p], name, len) && 
+    if (!memcmp(hdr_names[*p], name, len) /* ASAN won't like this... */ &&
         !hdr_names[*p][len]) return *p;
     p++;
   }

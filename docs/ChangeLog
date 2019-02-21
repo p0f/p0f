@@ -1,3 +1,22 @@
+Version 3.09b:
+--------------
+
+  - Fixed a likely only cosmetic bug with a one-byte overread of the pcap
+    packet buffer, which would cause an error under ASAN. Spotted by
+    Xavid Pretzer.
+
+  - Added a new signature for Chrome.
+
+  - Updated another signature for Chrome.
+
+Version 3.08b:
+--------------
+
+  - An awful fix for a packet loss bug (probably kernel or libpcap-related)
+    with some VMs.
+
+  - Improvement to avoid warnings with -r. 
+
 Version 3.07b:
 --------------
 

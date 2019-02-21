@@ -219,7 +219,7 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
   u8* opt_end;
 
   packet_cnt++;
-
+  
   cur_time = (struct timeval*)&hdr->ts;
 
   if (!(packet_cnt % EXPIRE_INTERVAL)) expire_cache();
@@ -585,15 +585,15 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
 
         /* MSS is a four-byte option with specified size. */
 
-        if (*data != 4) {
-          DEBUG("[#] MSS option expected to have 4 bytes, not %u.\n", *data);
-          pk.quirks |= QUIRK_OPT_BAD;
-        }
-
         if (data + 3 > opt_end) {
           DEBUG("[#] MSS option would end past end of header (%u left).\n",
                 opt_end - data);
           goto abort_options;
+        }
+
+        if (*data != 4) {
+          DEBUG("[#] MSS option expected to have 4 bytes, not %u.\n", *data);
+          pk.quirks |= QUIRK_OPT_BAD;
         }
 
         pk.mss = ntohs(RD16p(data+1));
@@ -606,15 +606,15 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
 
         /* WS is a three-byte option with specified size. */
 
-        if (*data != 3) {
-          DEBUG("[#] MSS option expected to have 3 bytes, not %u.\n", *data);
-          pk.quirks |= QUIRK_OPT_BAD;
-        }
-
         if (data + 2 > opt_end) {
           DEBUG("[#] WS option would end past end of header (%u left).\n",
                 opt_end - data);
           goto abort_options;
+        }
+
+        if (*data != 3) {
+          DEBUG("[#] WS option expected to have 3 bytes, not %u.\n", *data);
+          pk.quirks |= QUIRK_OPT_BAD;
         }
 
         pk.wscale = data[1];
@@ -629,15 +629,15 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
 
         /* SACKOK is a two-byte option with specified size. */
 
-        if (*data != 2) {
-          DEBUG("[#] SACKOK option expected to have 2 bytes, not %u.\n", *data);
-          pk.quirks |= QUIRK_OPT_BAD;
-        }
-
         if (data + 1 > opt_end) {
           DEBUG("[#] SACKOK option would end past end of header (%u left).\n",
                 opt_end - data);
           goto abort_options;
+        }
+
+        if (*data != 2) {
+          DEBUG("[#] SACKOK option expected to have 2 bytes, not %u.\n", *data);
+          pk.quirks |= QUIRK_OPT_BAD;
         }
 
         data++;
@@ -648,6 +648,11 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
 
         /* SACK is a variable-length option of 10 to 34 bytes. Because we don't
            know the size any better, we need to bail out if it looks wonky. */
+
+        if (data == opt_end) {
+          DEBUG("[#] SACK option without room for length field.");
+          goto abort_options;
+        }
 
         if (*data < 10 || *data > 34) {
           DEBUG("[#] SACK length out of range (%u), bailing out.\n", *data);
@@ -668,16 +673,16 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
 
         /* Timestamp is a ten-byte option with specified size. */
 
-        if (*data != 10) {
-          DEBUG("[#] TStamp option expected to have 10 bytes, not %u.\n",
-                *data);
-          pk.quirks |= QUIRK_OPT_BAD;
-        }
-
         if (data + 9 > opt_end) {
           DEBUG("[#] TStamp option would end past end of header (%u left).\n",
                 opt_end - data);
           goto abort_options;
+        }
+
+        if (*data != 10) {
+          DEBUG("[#] TStamp option expected to have 10 bytes, not %u.\n",
+                *data);
+          pk.quirks |= QUIRK_OPT_BAD;
         }
 
         pk.ts1 = ntohl(RD32p(data + 1));
@@ -700,6 +705,12 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
       default:
 
         /* Unknown option, presumably with specified size. */
+
+        if (data == opt_end) {
+          DEBUG("[#] Unknown option 0x%02x without room for length field.",
+                data[-1]);
+          goto abort_options;
+        }
 
         if (*data < 2 || *data > 40) {
           DEBUG("[#] Unknown option 0x%02x has invalid length %u.\n",
@@ -840,7 +851,8 @@ static void nuke_hosts(void) {
   u32 kcnt = 1 + (host_cnt * KILL_PERCENT / 100);
   struct host_data* target = host_by_age;
 
-  WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
+  if (!read_file)
+    WARN("Too many host entries, deleting %u. Use -m to adjust.", kcnt);
 
   nuke_flows(1);
 
@@ -1001,7 +1013,7 @@ static void nuke_flows(u8 silent) {
 
   if (silent)
     DEBUG("[#] Pruning connections - trying to delete %u...\n",kcnt);
-  else
+  else if (!read_file)
     WARN("Too many tracked connections, deleting %u. "
          "Use -m to adjust.", kcnt);
 
