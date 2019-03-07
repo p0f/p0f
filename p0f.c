@@ -314,16 +314,16 @@ void start_observation(char* keyword, u8 field_cnt, u8 to_srv,
 
   if (!daemon_mode) {
 
-    SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
-         f->cli_port);
-    SAYF("%s/%u (%s) ]-\n|\n", addr_to_str(f->server->addr, f->client->ip_ver),
-         f->srv_port, keyword);
+    u8 tmp[64];
 
-    SAYF("| %-8s = %s/%u\n", to_srv ? "client" : "server", 
-         addr_to_str(to_srv ? f->client->addr :
-         f->server->addr, f->client->ip_ver),
-         to_srv ? f->cli_port : f->srv_port);
+    time_t ut = get_unix_time();
+    struct tm* lt = localtime(&ut);
 
+    strftime((char*)tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
+
+    printf("[%s] mod=%s|cli=%s/%u|srv=%s/%u|subj=%s", tmp, keyword, addr_to_str(f->client->addr,
+         f->client->ip_ver), f->cli_port, addr_to_str(f->server->addr, f->server->ip_ver),
+         f->srv_port, to_srv ? "cli" : "srv");
   }
 
   if (log_file) {
@@ -335,10 +335,8 @@ void start_observation(char* keyword, u8 field_cnt, u8 to_srv,
 
     strftime((char*)tmp, 64, "%Y/%m/%d %H:%M:%S", lt);
 
-    LOGF("[%s] mod=%s|cli=%s/%u|",tmp, keyword, addr_to_str(f->client->addr,
-         f->client->ip_ver), f->cli_port);
-
-    LOGF("srv=%s/%u|subj=%s", addr_to_str(f->server->addr, f->server->ip_ver),
+    LOGF("[%s] mod=%s|cli=%s/%u|srv=%s/%u|subj=%s", tmp, keyword, addr_to_str(f->client->addr,
+         f->client->ip_ver), f->cli_port, addr_to_str(f->server->addr, f->server->ip_ver),
          f->srv_port, to_srv ? "cli" : "srv");
 
   }
@@ -355,7 +353,7 @@ void add_observation_field(char* key, u8* value) {
   if (!obs_fields) FATAL("Unexpected observation field ('%s').", key);
 
   if (!daemon_mode)
-    SAYF("| %-8s = %s\n", key, value ? value : (u8*)"???");
+    printf("|%s=%s", key, value ? value : (u8*)"???");
 
   if (log_file) LOGF("|%s=%s", key, value ? value : (u8*)"???");
 
@@ -363,7 +361,7 @@ void add_observation_field(char* key, u8* value) {
 
   if (!obs_fields) {
 
-    if (!daemon_mode) SAYF("|\n`----\n\n");
+    if (!daemon_mode) printf("\n");
 
     if (log_file) LOGF("\n");
 
