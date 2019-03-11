@@ -1028,7 +1028,19 @@ static void nuke_flows(u8 silent) {
 
 static struct packet_flow* create_flow_from_syn(struct packet_data* pk) {
 
+  u32 *tmp;
+  u32 b_sub;
   u32 bucket = get_flow_bucket(pk);
+  tmp = &bucket;
+  b_sub = *tmp;
+  while(b_sub == bucket-1){
+          if(flow_b[b_sub] == NULL) break;
+          b_sub++;
+          if(b_sub == FLOW_BUCKETS) b_sub = 0;
+  }
+
+  bucket = b_sub;
+
   struct packet_flow* nf;
 
   if (flow_cnt > max_conn) nuke_flows(0);
@@ -1276,7 +1288,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
     case TCP_SYN:
 
-      SAYF("syn packet\n");
+      //SAYF("syn packet\n");
 
       //SAYF("syn_sig\n");
       if (f) {
@@ -1326,7 +1338,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
     case TCP_SYN | TCP_ACK:
 
-      SAYF("syn/ack packet\n");
+      //SAYF("syn/ack packet\n");
       if (!f) {
 
         DEBUG("[#] Stray SYN+ACK with no flow.\n");
@@ -1390,11 +1402,15 @@ static void flow_dispatch(struct packet_data* pk) {
     case TCP_FIN | TCP_ACK:
     case TCP_FIN:
 
-      if(to_srv){
+      SAYF("%d\n",to_srv);
+      if(to_srv == 1){
       	SAYF("fin packet at %u\n",f->bucket);
+	//SAYF("f_syn: %s\n",f_syn[f->bucket].data);
 	if(strstr(fp_sig[f->bucket],f_syn[f->bucket].data) != NULL){
-        	strcat(fp_sig[f->bucket],"]}\n");
-        	SAYF("%u: %s",f->bucket,fp_sig[f->bucket]);
+        	strcat(fp_sig[f->bucket],"]}");
+        	SAYF("%s\n",fp_sig[f->bucket]);
+		memset(f_syn[f->bucket].data,'\0',sizeof(f_syn[f->bucket].data));
+		memset(fp_sig[f->bucket],'\0',sizeof(fp_sig[f->bucket]));
       	}
       	if (f) {
 
@@ -1404,14 +1420,12 @@ static void flow_dispatch(struct packet_data* pk) {
 
       	}
 
-      	//memset(f_syn[f->bucket].data,'\0',sizeof(f_syn[f->bucket].data));
       }
-      //memset(fp_sig,'\0',sizeof(fp_sig));
       break;
 
     case TCP_ACK:
 
-      SAYF("ack packet\n");
+      //SAYF("ack packet\n");
       if (!f) return;
 
       /* Stop there, you criminal scum! */
@@ -1453,26 +1467,23 @@ static void flow_dispatch(struct packet_data* pk) {
           f->request = ck_realloc_kb(f->request, f->req_len + read_amt + 1);
           memcpy(f->request + f->req_len, pk->payload, read_amt);
 	  f->req_len += read_amt;
-	  SAYF("%s\n",f->request+f->req_len-read_amt);
-
         }
 
         check_ts_tcp(to_srv, pk, f);
 	f->next_cli_seq += pk->pay_len;
 
 	if(pk->payload != NULL){
-	  SAYF("req_length: %u\n",f->req_len);
 	  query_to_json((char *)f->request+f->req_len-read_amt,json_data);
 	  if(strlen(f_syn[f->bucket].data) != 0 && strlen(fp_sig[f->bucket]) == 0){
 	    sprintf(fp_sig[f->bucket],"{%s\"reqests\":[{%s",f_syn[f->bucket].data,json_data);
 	    strcat(fp_sig[f->bucket],"}");
-	    SAYF("written syn at %u\n",f->bucket);
+	    //SAYF("written syn at %u\n",f->bucket);
 	    //memset(syn_data,'\0',sizeof());
 	  }else if(f->bucket == f_syn[f->bucket].bucket){
 	    strcat(fp_sig[f->bucket],",{");
 	    strcat(fp_sig[f->bucket],json_data);
 	    strcat(fp_sig[f->bucket],"}");
-	    SAYF("add req at %u\n",f->bucket);
+	    //SAYF("add req at %u\n",f->bucket);
 	  }
 	}
 
