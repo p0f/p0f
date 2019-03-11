@@ -1256,7 +1256,7 @@ static void flow_dispatch(struct packet_data* pk) {
   char json_data[MAX_FLOW_DATA]={'\0'};
   u32 flow_number = 0;
   static int cnt = 0;
-  //u32 read_amt = 0;
+  u32 read_amt = 0;
 
   SAYF("%d\n",++cnt);
 
@@ -1448,12 +1448,12 @@ static void flow_dispatch(struct packet_data* pk) {
 
         if (f->req_len < MAX_FLOW_DATA && pk->pay_len) {
 
-          u32 read_amt = MIN(pk->pay_len, MAX_FLOW_DATA - f->req_len);
+          read_amt = MIN(pk->pay_len, MAX_FLOW_DATA - f->req_len);
 
           f->request = ck_realloc_kb(f->request, f->req_len + read_amt + 1);
           memcpy(f->request + f->req_len, pk->payload, read_amt);
-          f->req_len += read_amt;
-	  SAYF("%s\n",f->request);
+	  f->req_len += read_amt;
+	  SAYF("%s\n",f->request+f->req_len-read_amt);
 
         }
 
@@ -1462,7 +1462,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
 	if(pk->payload != NULL){
 	  SAYF("req_length: %u\n",f->req_len);
-	  query_to_json((char *)f->request,json_data);
+	  query_to_json((char *)f->request+f->req_len-read_amt,json_data);
 	  if(strlen(f_syn[f->bucket].data) != 0 && strlen(fp_sig[f->bucket]) == 0){
 	    sprintf(fp_sig[f->bucket],"{%s\"reqests\":[{%s",f_syn[f->bucket].data,json_data);
 	    strcat(fp_sig[f->bucket],"}");
