@@ -1256,6 +1256,7 @@ static void flow_dispatch(struct packet_data* pk) {
   char json_data[MAX_FLOW_DATA]={'\0'};
   u32 flow_number = 0;
   static int cnt = 0;
+  //u32 read_amt = 0;
 
   SAYF("%d\n",++cnt);
 
@@ -1266,6 +1267,7 @@ static void flow_dispatch(struct packet_data* pk) {
         addr_to_str(pk->dst, pk->ip_ver), pk->dport, pk->tcp_type,
         pk->pay_len);
     
+  //SAYF("lookup_flow\n");
   f = lookup_flow(pk, &to_srv);
 
   //SAYF("serv?: %u\n",to_srv);
@@ -1274,9 +1276,9 @@ static void flow_dispatch(struct packet_data* pk) {
 
     case TCP_SYN:
 
-      memset(f_syn[f->bucket].data,'\0',sizeof(f_syn[f->bucket].data));
-      f_syn[f->bucket].bucket = f->bucket;
+      SAYF("syn packet\n");
 
+      //SAYF("syn_sig\n");
       if (f) {
 
         /* Perhaps just a simple dupe? */
@@ -1288,11 +1290,13 @@ static void flow_dispatch(struct packet_data* pk) {
       }
 
       f = create_flow_from_syn(pk);
+      memset(f_syn[f->bucket].data,'\0',sizeof(f_syn[f->bucket].data));
+      f_syn[f->bucket].bucket = f->bucket;
 
       tsig = fingerprint_tcp(1, pk, f, f_syn[f->bucket].data);
 
       //SAYF("syn_flow_number: %u\n",syn_number);
-      //SAYF("%s\n",syn_data[syn_number]);
+      SAYF("%u: %s\n",f->bucket,f_syn[f->bucket].data);
 
       /* We don't want to do any further processing on generic non-OS
          signatures (e.g. NMap). The easiest way to guarantee that is to 
@@ -1322,6 +1326,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
     case TCP_SYN | TCP_ACK:
 
+      SAYF("syn/ack packet\n");
       if (!f) {
 
         DEBUG("[#] Stray SYN+ACK with no flow.\n");
@@ -1386,9 +1391,10 @@ static void flow_dispatch(struct packet_data* pk) {
     case TCP_FIN:
 
       if(to_srv){
-      	if(strlen(fp_sig[f->bucket]) > 0){
+      	SAYF("fin packet at %u\n",f->bucket);
+	if(strstr(fp_sig[f->bucket],f_syn[f->bucket].data) != NULL){
         	strcat(fp_sig[f->bucket],"]}\n");
-        	SAYF("%s",fp_sig[f->bucket]);
+        	SAYF("%u: %s",f->bucket,fp_sig[f->bucket]);
       	}
       	if (f) {
 
@@ -1405,7 +1411,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
     case TCP_ACK:
 
-      //SAYF("ack_flow_bucket: %u\n",flow_number);
+      SAYF("ack packet\n");
       if (!f) return;
 
       /* Stop there, you criminal scum! */
@@ -1447,25 +1453,26 @@ static void flow_dispatch(struct packet_data* pk) {
           f->request = ck_realloc_kb(f->request, f->req_len + read_amt + 1);
           memcpy(f->request + f->req_len, pk->payload, read_amt);
           f->req_len += read_amt;
+	  SAYF("%s\n",f->request);
 
         }
 
         check_ts_tcp(to_srv, pk, f);
 	f->next_cli_seq += pk->pay_len;
 
-	if(f->req_len > 0){
-	  //SAYF("req_flow_bucket: %u\n",flow_number);
+	if(pk->payload != NULL){
+	  SAYF("req_length: %u\n",f->req_len);
 	  query_to_json((char *)f->request,json_data);
 	  if(strlen(f_syn[f->bucket].data) != 0 && strlen(fp_sig[f->bucket]) == 0){
 	    sprintf(fp_sig[f->bucket],"{%s\"reqests\":[{%s",f_syn[f->bucket].data,json_data);
 	    strcat(fp_sig[f->bucket],"}");
-	    SAYF("written syn\n");
+	    SAYF("written syn at %u\n",f->bucket);
 	    //memset(syn_data,'\0',sizeof());
 	  }else if(f->bucket == f_syn[f->bucket].bucket){
 	    strcat(fp_sig[f->bucket],",{");
 	    strcat(fp_sig[f->bucket],json_data);
 	    strcat(fp_sig[f->bucket],"}");
-	    SAYF("add req\n");
+	    SAYF("add req at %u\n",f->bucket);
 	  }
 	}
 
