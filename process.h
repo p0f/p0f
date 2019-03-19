@@ -198,11 +198,16 @@ struct packet_flow {
 
 };
 
-struct syn_data{			/* struct of SYN signature every packet flows */
-	
-	char data[512];			/* SYN signature 	*/
-	u32  bucket;			/* unique flow ID 	*/
+struct syn_data{					/* struct of SYN signature every packet flows */
+	struct syn_data *prev, *next;			/* If bucket is same, store the both data */	
+	char data[512];					/* SYN signature */
+	u32  bucket;					/* unique flow ID */
 
+};
+
+struct p0f_query{				/* Like syn_data */
+	struct p0f_query *prev, *next;
+	char fp_sig[MAX_FLOW_DATA];
 };
 
 struct http_header{			/* struct of HTTP request header      */
