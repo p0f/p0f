@@ -70,8 +70,8 @@ static u8 *use_iface,                   /* Interface to listen on             */
           *log_file,                    /* Binary log file name               */
           *api_sock,                    /* API socket file name               */
           *fp_file;                     /* Location of p0f.fp                 */
-          
-u8* read_file;
+
+u8* read_file;                          /* File to read pcap data from        */
 
 static u32
   api_max_conn    = API_MAX_CONN;       /* Maximum number of API connections  */
@@ -845,12 +845,12 @@ poll_again:
 
           close(pfds[cur].fd);
           ctable[cur]->fd = -1;
-
+ 
           pfd_count = regen_pfds(pfds, ctable);
           goto poll_again;
 
       }
-      
+
       if (pfds[cur].revents & POLLOUT) switch (cur) {
 
         case 0: case 1:
@@ -955,6 +955,7 @@ poll_again:
           }
 
       }
+
 
       /* Processed all reported updates already? If so, bail out early. */
 
