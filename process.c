@@ -1307,14 +1307,15 @@ static void flow_dispatch(struct packet_data* pk) {
       f = create_flow_from_syn(pk);
       SAYF("start if\n");
       
-      if(strlen(f_syn[f->bucket]->data) > 0){
+      //SAYF("made nsd\n");
+      nsd = ck_alloc(sizeof(struct syn_data));
+      if(CP(f_syn[f->bucket])){
 	SAYF("if count\n");
-	nsd = ck_alloc(sizeof(struct syn_data));
-	//SAYF("made nsd\n");
-	f_syn[f->bucket]->prev = nsd;
-	nsd->next = f_syn[f->bucket];
-	f_syn[f->bucket] = nsd;
+        f_syn[f->bucket]->prev = nsd;
+        nsd->next = f_syn[f->bucket];
       }
+      f_syn[f->bucket] = nsd;
+
       SAYF("start memset\n");
       memset(f_syn[f->bucket]->data,'\0',sizeof(f_syn[f->bucket]->data));
       f_syn[f->bucket]->bucket = f->bucket;
@@ -1416,33 +1417,38 @@ static void flow_dispatch(struct packet_data* pk) {
     case TCP_FIN | TCP_ACK:
     case TCP_FIN:
 
+      //struct syn_data* s;
+      //struct p0f_query* pq;
+
       SAYF("%d\n",to_srv);
       if(to_srv == 1){
       	SAYF("fin packet at %u\n",f->bucket);
 	//SAYF("f_syn: %s\n",f_syn[f->bucket].data);
-	for(int pls=0;pls<flow_cnt;pls++){
-		f_syn[f->bucket] = f_syn[f->bucket]->next;
-		fp_sig[f->bucket] = fp_sig[f->bucket]->next;
+	if(CP(fp_sig[f->bucket])){
+	  SAYF("cmp data\n");
+	  if(strstr(fp_sig[f->bucket]->fp_sig,f_syn[f->bucket]->data) != NULL){
+        	  strcat(fp_sig[f->bucket]->fp_sig,"]}");
+        	  SAYF("%s\n",fp_sig[f->bucket]->fp_sig);
+		  memset(fp_sig[f->bucket]->fp_sig,'\0',sizeof(fp_sig[f->bucket]->fp_sig));
+      	  }
+	  struct syn_data* s = f_syn[f->bucket];
+          if(CP(s->next)) s->next->prev = s->prev;
+          if(CP(s->prev)) s->prev->next = s->next;
+          else { CP(f_syn[f->bucket]); f_syn[f->bucket] = s->next; }
+
+          struct p0f_query* pq = fp_sig[f->bucket];
+          if(CP(pq->next)) pq->next->prev = pq->prev;
+          if(CP(pq->prev)) pq->prev->next = pq->next;
+          else { CP(fp_sig[f->bucket]); fp_sig[f->bucket] = pq->next; }
+
+          ck_free(s);
+          ck_free(pq);
 	}
-	if(strstr(fp_sig[f->bucket]->fp_sig,f_syn[f->bucket]->data) != NULL){
-        	strcat(fp_sig[f->bucket]->fp_sig,"]}");
-        	SAYF("%s\n",fp_sig[f->bucket]->fp_sig);
-		memset(f_syn[f->bucket]->data,'\0',sizeof(f_syn[f->bucket]->data));
-		memset(fp_sig[f->bucket]->fp_sig,'\0',sizeof(fp_sig[f->bucket]->fp_sig));
-      	}
-      	if (f) {
-
-         	if(CP(f_syn[f->bucket]->next)) f_syn[f->bucket]->next->prev = f_syn[f->bucket]->prev;
-		if(CP(f_syn[f->bucket]->prev)) f_syn[f->bucket]->prev->next = f_syn[f->bucket]->next;
-		f_syn[f->bucket] = f_syn[f->bucket]->prev;
-
-		if(CP(fp_sig[f->bucket]->next)) fp_sig[f->bucket]->next->prev = fp_sig[f->bucket]->prev;
-                if(CP(fp_sig[f->bucket]->prev)) fp_sig[f->bucket]->prev->next = fp_sig[f->bucket]->next;
-                fp_sig[f->bucket] = fp_sig[f->bucket]->prev;
+	memset(f_syn[f->bucket]->data,'\0',sizeof(f_syn[f->bucket]->data));
+	if (f) {
 		//SAYF("destroy\n");
 	 	check_ts_tcp(to_srv, pk, f);
          	destroy_flow(f);
-
       	}
 
       }
@@ -1498,20 +1504,39 @@ static void flow_dispatch(struct packet_data* pk) {
 	f->next_cli_seq += pk->pay_len;
 
 	if(pk->payload != NULL){
-	  nfs = ck_alloc(sizeof(struct p0f_query));
+	  if(!CP(fp_sig[f->bucket])){
+	    SAYF("start add http req\n");
+	    nfs = ck_alloc(sizeof(struct p0f_query));
+	    fp_sig[f->bucket] = nfs;
+	    while(flow_cnt > 0){
+              if(!(CP(fp_sig[f->bucket]))){
+		fp_sig[f->bucket]->prev = nfs;
+                nfs->next = fp_sig[f->bucket];
+                fp_sig[f->bucket] = nfs;
+	      }
+	      else{
+                fp_sig[f->bucket] = fp_sig[f->bucket]->next;
+	      }
+              flow_cnt--;
+            }
+	  }
+	  else{
+	    while(flow_cnt > 0){
+	      fp_sig[f->bucket] = fp_sig[f->bucket]->next;
+              flow_cnt--;
+            }
+          }
+	  SAYF("qtojson\n");
 	  query_to_json((char *)f->request+f->req_len-read_amt,json_data);
+	  SAYF("finishe json\n");
 	  while(strstr((char*)f->client->addr,f_syn[f->bucket]->data) == NULL &&
 			  strstr((char*)f->server->addr,f_syn[f->bucket]->data) == NULL){
 	    f_syn[f->bucket] = f_syn[f->bucket]->next;
 	  }
-	  while(flow_cnt > 0){
-                fp_sig[f->bucket] = fp_sig[f->bucket]->next;
-                flow_cnt--;
-          }
 	  if(strlen(f_syn[f->bucket]->data) != 0 && strlen(fp_sig[f->bucket]->fp_sig) == 0){
 	    sprintf(fp_sig[f->bucket]->fp_sig,"{%s\"reqests\":[{%s",f_syn[f->bucket]->data,json_data);
 	    strcat(fp_sig[f->bucket]->fp_sig,"}");
-	    //SAYF("written syn at %u\n",f->bucket);
+	    SAYF("written syn at %u\n",f->bucket);
 	    //memset(syn_data,'\0',sizeof());
 	  }else if(strlen(fp_sig[f->bucket]->fp_sig) > 0){
 	    strcat(fp_sig[f->bucket]->fp_sig,",{");
