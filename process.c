@@ -1305,7 +1305,8 @@ static void flow_dispatch(struct packet_data* pk) {
       }
 
       f = create_flow_from_syn(pk);
-	SAYF("start if\n");
+      SAYF("start if\n");
+      
       if(strlen(f_syn[f->bucket]->data) > 0){
 	SAYF("if count\n");
 	nsd = ck_alloc(sizeof(struct syn_data));
