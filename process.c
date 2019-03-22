@@ -1026,7 +1026,7 @@ static void nuke_flows(u8 silent) {
 
 /* Create flow, and host data if necessary. If counts exceeded, prune old. */
 
-static struct packet_flow* create_flow_from_syn(struct packet_data* pk u32* syn_bk) {
+static struct packet_flow* create_flow_from_syn(struct packet_data* pk) {
 
   u32 bucket = get_flow_bucket(pk);
   struct packet_flow* nf;
@@ -1085,7 +1085,7 @@ static struct packet_flow* create_flow_from_syn(struct packet_data* pk u32* syn_
   nf->next_cli_seq = pk->seq + 1;
 
   flow_cnt++;
-  *syn_bk = bucket;
+
   return nf;
 
 }

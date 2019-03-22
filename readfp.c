@@ -395,7 +395,7 @@ void read_config(u8* fname) {
 
   if (!st.st_size) { 
     close(f);
-    //goto end_fp_read;
+    goto end_fp_read;
   }
 
   cur = data = ck_alloc(st.st_size + 1);
@@ -438,8 +438,9 @@ void read_config(u8* fname) {
 
   ck_free(data);
 
-//end_fp_read:  
+end_fp_read:  
 
+  if(0) SAYF("dummy!\n");
   /*if (!sig_cnt)
     SAYF("[!] No signatures found in '%s'.\n", fname);
   else 
