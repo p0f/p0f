@@ -440,11 +440,12 @@ void read_config(u8* fname) {
 
 end_fp_read:  
 
-  if (!sig_cnt)
+  if(0) SAYF("dummy!\n");
+  /*if (!sig_cnt)
     SAYF("[!] No signatures found in '%s'.\n", fname);
   else 
     SAYF("[+] Loaded %u signature%s from '%s'.\n", sig_cnt,
-         sig_cnt == 1 ? "" : "s", fname);
+         sig_cnt == 1 ? "" : "s", fname);*/
 
 }
 

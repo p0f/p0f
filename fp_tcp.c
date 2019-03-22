@@ -778,11 +778,11 @@ static u8* dump_sig(struct packet_data* pk, struct tcp_sig* ts, u16 syn_mss) {
 
   if (dist > MAX_DIST) {
 
-    RETF("%u:%u+?:%u:", pk->ip_ver, pk->ttl, pk->ip_opt_len);
+    RETF("\"ts\":\"%u\",\"ver\":\"%u\",\"ttl\":%u,\"hops\":-1,\"olen\":%u,", ts->ts1,pk->ip_ver, pk->ttl, pk->ip_opt_len);
 
   } else {
 
-    RETF("%u:%u+%u:%u:", pk->ip_ver, pk->ttl, dist, pk->ip_opt_len);
+    RETF("\"ts\":\"%u\",\"ver\":\"%u\",\"ttl\":%u,\"hops\":%u,\"olen\":%u,", ts->ts1,pk->ip_ver, pk->ttl, dist, pk->ip_opt_len);
 
   }
 
@@ -790,14 +790,15 @@ static u8* dump_sig(struct packet_data* pk, struct tcp_sig* ts, u16 syn_mss) {
      a wildcard in such a case. */
 
   if (pk->mss == SPECIAL_MSS && pk->tcp_type == (TCP_SYN|TCP_ACK)) RETF("*:");
-  else RETF("%u:", pk->mss);
+  else RETF("\"mss\":%u,", pk->mss);
 
   win_m = detect_win_multi(ts, &win_mtu, syn_mss);
 
-  if (win_m > 0) RETF("%s*%u", win_mtu ? "mtu" : "mss", win_m);
-  else RETF("%u", pk->win);
+  if (win_m > 0) RETF("\"wsize\":%u,",pk->mss * win_m);
+  else RETF("\"wsize\":%u,", pk->win);
 
-  RETF(",%u:", pk->wscale);
+  RETF("\"scale\":%u,", pk->wscale);
+  RETF("\"olayout\":\"");
 
   for (i = 0; i < pk->opt_cnt; i++) {
 
@@ -831,9 +832,10 @@ static u8* dump_sig(struct packet_data* pk, struct tcp_sig* ts, u16 syn_mss) {
 
   }
 
-  RETF(":");
+  RETF("\",");
 
   if (pk->quirks) {
+    RETF("\"quirks\":\"");
 
     u8 sp = 0;
 
@@ -865,8 +867,13 @@ static u8* dump_sig(struct packet_data* pk, struct tcp_sig* ts, u16 syn_mss) {
 #undef MAYBE_CM
 
   }
+  else{
+    RETF("\"quirks\":\"None");
+  }
 
-  if (pk->pay_len) RETF(":+"); else RETF(":0");
+  RETF("\",");
+
+  if (pk->pay_len) RETF("\"pclass\":\"+\""); else RETF("\"pclass\":\"0\"");
 
   return ret;
 
@@ -1164,6 +1171,7 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   struct tcp_sig_record* m;
 
   char *srcIP,*dstIP,*os_name;
+  char sig_tmp[256]="";
 
   srcIP = (char *)malloc(32);
   dstIP = (char *)malloc(32);
@@ -1179,23 +1187,10 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   if (pk->tcp_type == TCP_SYN && pk->win == SPECIAL_WIN &&
       pk->mss == SPECIAL_MSS) f->sendsyn = 1;
 
-  if (to_srv){
-    //start_observation(f->sendsyn ? "sendsyn probe" : "syn", 4, 1, f);
-    /*SAYF(".-[ %s/%u -> ", addr_to_str(f->client->addr, f->client->ip_ver),
-         f->cli_port);
-    SAYF("%s/%u ]-\n", addr_to_str(f->server->addr, f->client->ip_ver),
-         f->srv_port);*/
-  }
-  /*else
-    start_observation(f->sendsyn ? "sendsyn response" : "syn+ack", 4, 0, f);*/
-  
   tcp_find_match(to_srv, sig, 0, f->syn_mss);
 
   if ((m = sig->matched)) {
 
-    /*OBSERVF((m->class_id == -1 || f->sendsyn) ? "app" : "os", "%s%s%s",
-            fp_os_names[m->name_id], m->flavor ? " " : "",
-            m->flavor ? m->flavor : (u8*)"");*/
     if(!(m->class_id == -1 || f->sendsyn)){
 	    sprintf(os_name,"%s%s",fp_os_names[m->name_id],m->flavor ? m->flavor : (u8*)"");
     }
@@ -1224,10 +1219,11 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   //add_observation_field("raw_sig", dump_sig(pk, sig, f->syn_mss));
  
   if(to_srv){
+	sprintf(sig_tmp,"%s",dump_sig(pk,sig,f->syn_mss));
 	sprintf(srcIP,"%s",addr_to_str(f->client->addr, f->client->ip_ver));
 	sprintf(dstIP,"%s",addr_to_str(f->server->addr, f->client->ip_ver));
-  	sprintf(pkt_sig,"src %s:%u,dst %s:%u,sig %s,os %s,",
-			srcIP,f->cli_port,dstIP,f->srv_port,dump_sig(pk, sig, f->syn_mss),os_name);
+  	sprintf(pkt_sig,"\"src\":\"%s:%u\",\"dst\":\"%s:%u\",%s,\"os\":\"%s\",",
+			srcIP,f->cli_port,dstIP,f->srv_port,sig_tmp,os_name);
   }
 
   if (pk->tcp_type == TCP_SYN) f->syn_mss = pk->mss;
@@ -1256,7 +1252,6 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   return sig;
 
 }
-
 
 /* Perform uptime detection. This is the only FP function that gets called not
    only on SYN or SYN+ACK, but also on ACK traffic. */

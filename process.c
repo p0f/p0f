@@ -61,6 +61,7 @@ static void flow_dispatch(struct packet_data* pk);
 static void nuke_flows(u8 silent);
 static void expire_cache(void);
 
+void change_char(char* key);		/* Change charctor size and escape charctor(ex.'A' -> 'a', '-' -> '_') */
 
 /* Get unix time in milliseconds. */
 
@@ -1084,6 +1085,7 @@ static struct packet_flow* create_flow_from_syn(struct packet_data* pk) {
   nf->next_cli_seq = pk->seq + 1;
 
   flow_cnt++;
+
   return nf;
 
 }
@@ -1131,21 +1133,83 @@ lookup_next:
 
 }
 
-void replace_escape(char* src_data){
-	char *p,*tmp;
-	int tmplen=0;
+/* The function to convert p0f query into json data */
 
-	p=src_data;
+void query_to_json(char* src_data, char* res_data){
+	
+	char *t_src;
+	int count=0,i=0;
 
-	while((p=strstr(src_data,"\r\n"))){
-		*p = '\0';
-		p+=strlen("\r\n");
-		tmplen = strlen(p)+1;
-		tmp = (char*)malloc(tmplen);
-		strcpy(tmp,p);
-		strcat(src_data,",");
-		strcat(src_data,tmp);
-		free(tmp);
+	t_src = src_data;
+
+	while(*t_src!='\0'){
+		if(*t_src == '\r' && *(t_src+1) == '\n'){
+			t_src+=strlen("\r\n");
+			count++;
+		}
+		if(*t_src == '\0') break;
+		t_src++;
+	}
+
+	struct http_header h[count];
+	t_src = src_data;
+
+	split_data(src_data,t_src,count,h);
+
+	for(i=0;i<count;i++){
+                strcat(res_data,"\"");
+		change_char(h[i].name);
+                strcat(res_data,h[i].name);
+                strcat(res_data,"\":\"");
+                strcat(res_data,h[i].value);
+                strcat(res_data,"\"");
+		if(i+1 == count) break;
+		strcat(res_data,",");
+        }
+	
+}
+
+/* split HTTP request header */
+
+void split_data(char* src, char* pointer, int cnt, struct http_header *query){
+
+	char *sp;
+	char *list[cnt];
+	int i=0;
+
+	pointer = strtok(src,"\r\n");
+	list[i] = pointer;
+	(query+i)->name = "method";
+	(query+i)->value = list[i];
+	i++;
+
+	while(pointer != NULL && i < cnt){
+		pointer = strtok(NULL,"\r\n");
+		list[i] = pointer;
+		sp = strstr(list[i],": ");
+		*sp = '\0';
+		sp += 2;
+		(query+i)->name = list[i];
+		(query+i)->value = sp;
+		i++;
+	}
+
+	return;
+}
+
+void change_char(char* key){
+	
+	char* tmp;
+
+	tmp = key;
+	while(*tmp != '\0'){
+		if(*tmp >= 'A' && *tmp <= 'Z'){
+			*tmp += 32;
+		}
+		else if(*tmp == '-'){
+			*tmp += 50;
+		}
+		tmp++;
 	}
 
 	return;
@@ -1186,8 +1250,9 @@ static void flow_dispatch(struct packet_data* pk) {
   struct tcp_sig* tsig;
   u8 to_srv = 0;
   u8 need_more = 0;
-  static char syn_data[256] = "";
+  static char syn_data[512] = "";
   static char fp_sig[MAX_FLOW_DATA];		/* MAX_FLOW_DATA: Maximum req size = 8192 */
+  char json_data[MAX_FLOW_DATA]={'\0'};
 
   DEBUG("[#] Received TCP packet: %s/%u -> ",
         addr_to_str(pk->src, pk->ip_ver), pk->sport);
@@ -1313,8 +1378,9 @@ static void flow_dispatch(struct packet_data* pk) {
          destroy_flow(f);
 
        }
-
-       SAYF("close fp_sig\n");
+       if(strlen(fp_sig) > 0)
+         strcat(fp_sig,"]}\n");
+         SAYF("%s",fp_sig);
 
        memset(syn_data,'\0',sizeof(syn_data));
        memset(fp_sig,'\0',sizeof(fp_sig));
@@ -1371,15 +1437,14 @@ static void flow_dispatch(struct packet_data* pk) {
 
 	if(f->request){
 	  if(strlen(syn_data) != 0){
-	    SAYF("open fp_sig\n");
-	    sprintf(fp_sig,"%s%s",syn_data,f->request);
-	    replace_escape(fp_sig);				/* delete the charactor of escape */
-	    SAYF("%s\n",fp_sig);
+	    query_to_json((char *)f->request,json_data);
+	    sprintf(fp_sig,"{%s\"reqests\":[{%s",syn_data,json_data);
+	    strcat(fp_sig,"}");
 	  }else{
-	    strcat(fp_sig,(char *)f->request);
-            replace_escape(fp_sig);				/* delete the charactor of escape */
-            SAYF("%s\n",fp_sig);
-	    memset(fp_sig,'\0',sizeof(fp_sig));
+	    query_to_json((char *)f->request,json_data);
+	    strcat(fp_sig,",{");
+	    strcat(fp_sig,json_data);
+	    strcat(fp_sig,"}");
 	  }
 
 	  memset(syn_data,'\0',sizeof(syn_data));

@@ -197,6 +197,11 @@ struct packet_flow {
 
 };
 
+struct http_header{			/* struct of HTTP request header */
+        char* name;
+        char* value;
+};
+
 extern u64 packet_cnt;
 
 void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data);
@@ -213,6 +218,8 @@ struct host_data* lookup_host(u8* addr, u8 ip_ver);
 
 void destroy_all_hosts(void);
 
-void replace_escape(char* src_data);	/* The function to replace escape symbol */
+void query_to_json(char* src_data, char* res_data);       /* The function to convert p0f query into json data */
+
+void split_data(char* src, char* pointer, int cnt, struct http_header *query);	/* The function to split HTTP header */
 
 #endif /* !_HAVE_PROCESS_H */
