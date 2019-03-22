@@ -219,7 +219,7 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
   u8* opt_end;
 
   packet_cnt++;
-
+  
   cur_time = (struct timeval*)&hdr->ts;
 
   if (!(packet_cnt % EXPIRE_INTERVAL)) expire_cache();
