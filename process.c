@@ -678,7 +678,6 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
                 opt_end - data);
           goto abort_options;
         }
-
         if (*data != 10) {
           DEBUG("[#] TStamp option expected to have 10 bytes, not %u.\n",
                 *data);
@@ -741,6 +740,7 @@ abort_options:
 
   }
 
+  //SAYF("src: %u dst: %u sport: %u dport: %u\n\n",pk.src,pk.dst,pk.sport,pk.dport);
   flow_dispatch(&pk);
 
 }
@@ -1131,6 +1131,25 @@ lookup_next:
 
 }
 
+void replace_escape(char* src_data){
+	char *p,*tmp;
+	int tmplen=0;
+
+	p=src_data;
+
+	while((p=strstr(src_data,"\r\n"))){
+		*p = '\0';
+		p+=strlen("\r\n");
+		tmplen = strlen(p)+1;
+		tmp = (char*)malloc(tmplen);
+		strcpy(tmp,p);
+		strcat(src_data,",");
+		strcat(src_data,tmp);
+		free(tmp);
+	}
+
+	return;
+}
 
 /* Go through host and flow cache, expire outdated items. */
 
@@ -1167,6 +1186,8 @@ static void flow_dispatch(struct packet_data* pk) {
   struct tcp_sig* tsig;
   u8 to_srv = 0;
   u8 need_more = 0;
+  static char syn_data[256] = "";
+  static char fp_sig[MAX_FLOW_DATA];		/* MAX_FLOW_DATA: Maximum req size = 8192 */
 
   DEBUG("[#] Received TCP packet: %s/%u -> ",
         addr_to_str(pk->src, pk->ip_ver), pk->sport);
@@ -1193,7 +1214,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
       f = create_flow_from_syn(pk);
 
-      tsig = fingerprint_tcp(1, pk, f);
+      tsig = fingerprint_tcp(1, pk, f, syn_data);
 
       /* We don't want to do any further processing on generic non-OS
          signatures (e.g. NMap). The easiest way to guarantee that is to 
@@ -1206,7 +1227,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
       }
 
-      fingerprint_mtu(1, pk, f);
+      //fingerprint_mtu(1, pk, f);
       check_ts_tcp(1, pk, f);
 
       if (tsig) {
@@ -1234,7 +1255,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
       if (f->sendsyn) {
 
-        fingerprint_tcp(0, pk, f);
+        fingerprint_tcp(0, pk, f,syn_data);
         destroy_flow(f);
         return;
 
@@ -1260,7 +1281,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
       f->acked = 1;
 
-      tsig = fingerprint_tcp(0, pk, f);
+      tsig = fingerprint_tcp(0, pk, f,syn_data);
 
       /* SYN from real OS, SYN+ACK from a client stack. Weird, but whatever. */
 
@@ -1271,7 +1292,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
       }
 
-      fingerprint_mtu(0, pk, f);
+      //fingerprint_mtu(0, pk, f);
       check_ts_tcp(0, pk, f);
 
       ck_free(f->server->last_synack);
@@ -1293,6 +1314,10 @@ static void flow_dispatch(struct packet_data* pk) {
 
        }
 
+       SAYF("close fp_sig\n");
+
+       memset(syn_data,'\0',sizeof(syn_data));
+       memset(fp_sig,'\0',sizeof(fp_sig));
        break;
 
     case TCP_ACK:
@@ -1342,8 +1367,23 @@ static void flow_dispatch(struct packet_data* pk) {
         }
 
         check_ts_tcp(1, pk, f);
+	f->next_cli_seq += pk->pay_len;
 
-        f->next_cli_seq += pk->pay_len;
+	if(f->request){
+	  if(strlen(syn_data) != 0){
+	    SAYF("open fp_sig\n");
+	    sprintf(fp_sig,"%s%s",syn_data,f->request);
+	    replace_escape(fp_sig);				/* delete the charactor of escape */
+	    SAYF("%s\n",fp_sig);
+	  }else{
+	    strcat(fp_sig,(char *)f->request);
+            replace_escape(fp_sig);				/* delete the charactor of escape */
+            SAYF("%s\n",fp_sig);
+	    memset(fp_sig,'\0',sizeof(fp_sig));
+	  }
+
+	  memset(syn_data,'\0',sizeof(syn_data));
+	}
 
       } else {
 
@@ -1442,7 +1482,7 @@ void add_nat_score(u8 to_srv, struct packet_flow* f, u16 reason, u8 score) {
 
   if (over_5 > 2 || over_2 > 4 || over_1 > 6 || over_0 > 8) {
 
-    start_observation("ip sharing", 2, to_srv, f);
+    //start_observation("ip sharing", 2, to_srv, f);
 
     reason = hd->nat_reasons;
 
@@ -1456,7 +1496,7 @@ void add_nat_score(u8 to_srv, struct packet_flow* f, u16 reason, u8 score) {
     /* Wait for something more substantial. */
     if (score == 1) return;
 
-    start_observation("host change", 2, to_srv, f);
+    //start_observation("host change", 2, to_srv, f);
 
     hd->last_chg = get_unix_time();
 
@@ -1485,9 +1525,9 @@ void add_nat_score(u8 to_srv, struct packet_flow* f, u16 reason, u8 score) {
 
 #undef REAF
 
-  add_observation_field("reason", rea[0] ? (rea + 1) : NULL);
+  //add_observation_field("reason", rea[0] ? (rea + 1) : NULL);
 
-  OBSERVF("raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
+  //OBSERVF("raw_hits", "%u,%u,%u,%u", over_5, over_2, over_1, over_0);
 
 }
 
@@ -1546,3 +1586,20 @@ void destroy_all_hosts(void) {
   while (host_by_age) destroy_host(host_by_age);
 
 }
+
+/*void C_PY(void){
+	PyObject *pModule,*pTmp;
+	char *sTmp;
+
+	Py_initialize();
+
+	pModule = PyImport_ImportModule("test_script");
+
+	pTmp = PyObject_CallMethod(pModule,"func",NULL);
+
+	PyArg_Parse(pTmp,"%s",&sTmp);
+
+	printf("%s\n",sTmp);
+
+	Py_Finalize();
+}*/

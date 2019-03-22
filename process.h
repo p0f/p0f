@@ -213,4 +213,6 @@ struct host_data* lookup_host(u8* addr, u8 ip_ver);
 
 void destroy_all_hosts(void);
 
+void replace_escape(char* src_data);	/* The function to replace escape symbol */
+
 #endif /* !_HAVE_PROCESS_H */

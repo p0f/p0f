@@ -506,6 +506,8 @@ static u8* dump_sig(u8 to_srv, struct http_sig* hsig) {
   u32 rlen = 0;
 
   u8* val;
+  int ua_len=0;
+  u8* ua_data;
 
 #define RETF(_par...) do { \
     s32 _len = snprintf(NULL, 0, _par); \
@@ -625,6 +627,13 @@ static u8* dump_sig(u8 to_srv, struct http_sig* hsig) {
     tmp[tpos] = 0;
 
     if (tpos) RETF("%s", tmp);
+
+    /*ua_len = snprintf(NULL,0,"%s",tmp);
+    ua_data = DFL_ck_realloc_kb(ret,ua_len + 1);
+    snprintf((char*)ua_data,ua_len+1,"%s",tmp);
+    SAYF("%s",ua_data);
+    
+    free(ua_data);*/
 
   }
 
@@ -847,18 +856,20 @@ static void fingerprint_http(u8 to_srv, struct packet_flow* f) {
 
   struct http_sig_record* m;
   u8* lang = NULL;
+  int i=0;
+  u8* data = NULL;
 
   http_find_match(to_srv, &f->http_tmp, 0);
 
-  start_observation(to_srv ? "http request" : "http response", 4, to_srv, f);
+ // start_observation(to_srv ? "http request" : "http response", 4, to_srv, f);
 
   if ((m = f->http_tmp.matched)) {
 
-    OBSERVF((m->class_id < 0) ? "app" : "os", "%s%s%s",
+    /*OBSERVF((m->class_id < 0) ? "app" : "os", "%s%s%s",
             fp_os_names[m->name_id], m->flavor ? " " : "",
-            m->flavor ? m->flavor : (u8*)"");
+            m->flavor ? m->flavor : (u8*)"");*/
 
-  } else add_observation_field("app", NULL);
+  } //else add_observation_field("app", NULL);
 
   if (f->http_tmp.lang && isalpha(f->http_tmp.lang[0]) &&
       isalpha(f->http_tmp.lang[1]) && !isalpha(f->http_tmp.lang[2])) {
@@ -872,16 +883,25 @@ static void fingerprint_http(u8 to_srv, struct packet_flow* f) {
       pos += 2;
     }
 
-    if (!languages[lh][pos]) add_observation_field("lang", NULL);
-      else add_observation_field("lang", 
-           (lang = (u8*)languages[lh][pos + 1]));
+    //if (!languages[lh][pos]) add_observation_field("lang", NULL);
+      /*else add_observation_field("lang", 
+           (lang = (u8*)languages[lh][pos + 1]));*/
 
-  } else add_observation_field("lang", (u8*)"none");
+  } else //add_observation_field("lang", (u8*)"none");
 
-  add_observation_field("params", dump_flags(&f->http_tmp, m));
+  //add_observation_field("params", dump_flags(&f->http_tmp, m));
 
-  add_observation_field("raw_sig", dump_sig(to_srv, &f->http_tmp));
+ // add_observation_field("raw_sig", dump_sig(to_srv, &f->http_tmp));
+  //data = dump_sig(to_srv,&f->http_tmp);
+  //if(data)
+    //SAYF("%s\n",data);
 
+  if(to_srv){
+    /*for(i=0;i<HTTP_MAX_HDRS && f->http_tmp.hdr[i].value!=NULL;i++){
+        SAYF("%s\n",f->http_tmp.hdr[i].value);
+    }*/
+    //SAYF("%s\n",f->client->http_req_os->sw);
+  }
   score_nat(to_srv, f);
 
   /* Save observations needed to score future responses. */
