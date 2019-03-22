@@ -220,7 +220,7 @@ void parse_packet(void* junk, const struct pcap_pkthdr* hdr, const u8* data) {
   u8* opt_end;
 
   packet_cnt++;
-
+  
   cur_time = (struct timeval*)&hdr->ts;
 
   if (!(packet_cnt % EXPIRE_INTERVAL)) expire_cache();
@@ -1097,6 +1097,7 @@ static struct packet_flow* create_flow_from_syn(struct packet_data* pk) {
   nf->next_cli_seq = pk->seq + 1;
 
   flow_cnt++;
+
   return nf;
 
 }
@@ -1393,7 +1394,7 @@ static void flow_dispatch(struct packet_data* pk) {
 
       tsig = fingerprint_tcp(0, pk, f,f_syn[f->bucket]->data);
 
-      // SYN from real OS, SYN+ACK from a client stack. Weird, but whatever. 
+      /* SYN from real OS, SYN+ACK from a client stack. Weird, but whatever. */
 
       if (!tsig) {
 
@@ -1401,7 +1402,7 @@ static void flow_dispatch(struct packet_data* pk) {
         return;
 
       }
-      
+
       //fingerprint_mtu(0, pk, f);
       check_ts_tcp(0, pk, f);
 
