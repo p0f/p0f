@@ -1249,13 +1249,11 @@ static void expire_cache(void) {
 static void flow_dispatch(struct packet_data* pk) {
 
   static struct syn_data *f_syn[FLOW_BUCKETS];
-  struct syn_data* nsd;
   struct packet_flow* f;
   struct tcp_sig* tsig;
   u8 to_srv = 0;
 //  u8 need_more = 0;
   static struct p0f_query *fp_sig[FLOW_BUCKETS];		/* MAX_FLOW_DATA: Maximum req size = 8192 */
-  struct p0f_query* nfs;
   char json_data[MAX_FLOW_DATA]={'\0'};
   static int cnt = 0;
   u32 read_amt = 0;
@@ -1296,8 +1294,10 @@ static void flow_dispatch(struct packet_data* pk) {
       SAYF("start if\n");
       
       SAYF("made nsd\n");
-      nsd = ck_alloc(sizeof(struct syn_data));
-      SAYF("did malloc nsd\n");
+      struct syn_data* nsd;
+      nsd = ck_alloc(sizeof(struct syn_data));		/* I think the cause of error is here */
+      if(nsd == NULL) return;
+      SAYF("did malloc nsd at %p\n",nsd);
       if(CP(f_syn[f->bucket])){
 	SAYF("if count\n");
         f_syn[f->bucket]->prev = nsd;
@@ -1406,7 +1406,8 @@ static void flow_dispatch(struct packet_data* pk) {
     case TCP_FIN:
 
       SAYF("%d\n",to_srv);
-      if(to_srv == 1){
+      if(!f) break;
+      if(pk->dport == f->srv_port){
       	SAYF("fin packet at %u\n",f->bucket);
 	//SAYF("f_syn: %s\n",f_syn[f->bucket].data);
 	if(CP(fp_sig[f->bucket])){
@@ -1431,9 +1432,12 @@ static void flow_dispatch(struct packet_data* pk) {
           if(CP(pq->prev)) pq->prev->next = pq->next;
           else { CP(fp_sig[f->bucket]); fp_sig[f->bucket] = pq->next; }
 
-          //SAYF("free memories\n");
+          SAYF("free memories syn_data addr is %p\n",s);
 	  ck_free(s);
           ck_free(pq);
+
+	  s = NULL;
+	  pq = NULL;
 	}
 
 	if (f) {
@@ -1453,14 +1457,16 @@ static void flow_dispatch(struct packet_data* pk) {
       /* Stop there, you criminal scum! */
 
       if (f->sendsyn) {
-        destroy_flow(f);
+        SAYF("oops sendsyn\n");
+	destroy_flow(f);
         return;
       }
 
       if (!f->acked) {
 
         DEBUG("[#] Never received SYN+ACK to complete handshake, huh.\n");
-        destroy_flow(f);
+        SAYF("oops acked\n");
+	destroy_flow(f);
         return;
 
       }
@@ -1498,8 +1504,11 @@ static void flow_dispatch(struct packet_data* pk) {
 	  SAYF("flow number: %u\n",f->bucket);
 	  if(!CP(fp_sig[f->bucket])){
 	    //SAYF("start add http req\n");
+	    struct p0f_query* nfs;
 	    nfs = ck_alloc(sizeof(struct p0f_query));
+	    if(nfs == NULL) return;
 	    fp_sig[f->bucket] = nfs;
+	    SAYF("flow count: %d\n",flow_cnt);
 	    while(flow_cnt > 0){
               if(!(CP(fp_sig[f->bucket]))){
 		fp_sig[f->bucket]->prev = nfs;

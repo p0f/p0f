@@ -83,7 +83,7 @@
 
 /* Maximum request, response size to keep per flow: */
 
-#define MAX_FLOW_DATA       8192
+#define MAX_FLOW_DATA       16384
 
 /* Maximum number of TCP options we will process (< 256): */
 
