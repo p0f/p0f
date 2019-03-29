@@ -184,6 +184,7 @@ struct packet_flow {
   u16 syn_mss;                          /* MSS on SYN packet                  */
 
   u32 created;                          /* Flow creation date (unix time)     */
+  u32 updated;                          /* Flow updated  date (unix time)     */
 
   /* Application-level fingerprinting: */
 
@@ -200,7 +201,7 @@ struct packet_flow {
 
 struct syn_data{					/* struct of SYN signature every packet flows */
 	struct syn_data *prev, *next;			/* If bucket is same, store the both data */	
-	char data[512];					/* SYN signature */
+	char data[300];					/* SYN signature */
 	u32  bucket;					/* unique flow ID */
 
 };
