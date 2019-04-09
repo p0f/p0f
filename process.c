@@ -62,6 +62,7 @@ static void nuke_flows(u8 silent);
 static void expire_cache(void);
 
 void change_char(char* key);		/* Change charctor size and escape charctor(ex.'A' -> 'a', '-' -> '_') */
+void delete_quotation(char *value);	/* Delete double quotation marker (ex. "aabbcc" -> aabbcc ) */
 
 /* Get unix time in milliseconds. */
 
@@ -1163,6 +1164,7 @@ void query_to_json(char* src_data, char* res_data){
 		change_char(h[i].name);
                 strcat(res_data,h[i].name);
                 strcat(res_data,"\":\"");
+		delete_quotation(h[i].value);
                 strcat(res_data,h[i].value);
                 strcat(res_data,"\"");
 		if(i+1 == count) break;
@@ -1202,7 +1204,7 @@ void split_data(char* src, char* pointer, int cnt, struct http_header *query){
 void change_char(char* key){
 	
 	char* tmp;
-
+	
 	tmp = key;
 	while(*tmp != '\0'){
 		if(*tmp >= 'A' && *tmp <= 'Z'){
@@ -1213,6 +1215,36 @@ void change_char(char* key){
 		}
 		tmp++;
 	}
+
+	return;
+}
+
+/* delete quotation marker */
+
+void delete_quotation(char *value){
+
+	char* ptn;
+	char *tmp = (char *)malloc(strlen(value)+1);
+
+	ptn = value;
+	while(*ptn != '\0'){
+		if(*ptn == '\"'){
+			*ptn = '\0';
+			if(*(ptn+1) == '\0'){
+				break;
+			}
+			else{
+				ptn++;
+				strcpy(tmp,ptn);
+				strcat(value,tmp);
+			}
+		}
+		else{
+			ptn++;
+		}
+	}
+
+	free(tmp);
 
 	return;
 }
