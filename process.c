@@ -1598,7 +1598,7 @@ static void flow_dispatch(struct packet_data* pk) {
 	  
 	  if(strlen(f_syn[f->bucket]->data) != 0 && strlen(fp_sig[f->bucket]->fp_sig) == 0){
 	    //SAYF("start sprintf\n");
-	    sprintf(fp_sig[f->bucket]->fp_sig,"{%s\"reqests\":[{%s",f_syn[f->bucket]->data,json_data);
+	    sprintf(fp_sig[f->bucket]->fp_sig,"{%s\"requests\":[{%s",f_syn[f->bucket]->data,json_data);
 	    strcat(fp_sig[f->bucket]->fp_sig,"}");
 	    //SAYF("written syn at %u\n",f->bucket);
 	    //memset(syn_data,'\0',sizeof());
