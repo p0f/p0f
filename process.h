@@ -184,6 +184,7 @@ struct packet_flow {
   u16 syn_mss;                          /* MSS on SYN packet                  */
 
   u32 created;                          /* Flow creation date (unix time)     */
+  u32 updated;                          /* Flow updated  date (unix time)     */
 
   /* Application-level fingerprinting: */
 
@@ -194,10 +195,23 @@ struct packet_flow {
   u8  http_gotresp1;                    /* Got initial line of a response?    */
 
   struct http_sig http_tmp;             /* Temporary signature                */
+  /*struct syn_sig  syn_tmp;*/		/* Temporary SYN signature            */
 
 };
 
-struct http_header{			/* struct of HTTP request header */
+struct syn_data{					/* struct of SYN signature every packet flows */
+	struct syn_data *prev, *next;			/* If bucket is same, store the both data */	
+	char data[300];					/* SYN signature */
+	u32  bucket;					/* unique flow ID */
+
+};
+
+struct p0f_query{				/* Like syn_data */
+	struct p0f_query *prev, *next;
+	char fp_sig[MAX_FLOW_DATA];
+};
+
+struct http_header{			/* struct of HTTP request header      */
         char* name;
         char* value;
 };

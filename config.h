@@ -45,7 +45,7 @@
 /* Default connection and host time limits (adjustable via -t): */
 
 #ifndef HOST_IDLE_LIMIT
-#  define CONN_MAX_AGE      30  /* seconds */
+#  define CONN_MAX_AGE      300  /* seconds */
 #  define HOST_IDLE_LIMIT   120 /* minutes */
 #endif /* !HOST_IDLE_LIMIT */
 
@@ -83,7 +83,7 @@
 
 /* Maximum request, response size to keep per flow: */
 
-#define MAX_FLOW_DATA       8192
+#define MAX_FLOW_DATA       65536
 
 /* Maximum number of TCP options we will process (< 256): */
 
