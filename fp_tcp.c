@@ -1192,7 +1192,7 @@ struct tcp_sig* fingerprint_tcp(u8 to_srv, struct packet_data* pk,
   if ((m = sig->matched)) {
 
     if(!(m->class_id == -1 || f->sendsyn)){
-	    sprintf(os_name,"%s%s",fp_os_names[m->name_id],m->flavor ? m->flavor : (u8*)"");
+	    sprintf(os_name,"%s%s%s",fp_os_names[m->name_id],m->flavor ? " " : "",m->flavor ? m->flavor : (u8*)"");
     }
 
   } else {
