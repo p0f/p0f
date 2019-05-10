@@ -468,7 +468,7 @@ static void prepare_pcap(void) {
     if (use_iface)
       FATAL("Options -i and -r are mutually exclusive.");
 
-    if (access((char*)read_file, R_OK))
+    if (access((char*)read_file, R_OK) && strcmp((char*)read_file, "-"))
       PFATAL("Can't access file '%s'.", read_file);
 
     pt = pcap_open_offline((char*)read_file, pcap_err);
