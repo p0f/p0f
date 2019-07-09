@@ -234,6 +234,6 @@ void destroy_all_hosts(void);
 
 void query_to_json(char* src_data, char* res_data);       /* The function to convert p0f query into json data */
 
-void split_data(char* src, char* pointer, int cnt, struct http_header *query);	/* The function to split HTTP header */
+void split_data(char* src, char* pointer, int cnt, int* flag, struct http_header *query);	/* The function to split HTTP header */
 
 #endif /* !_HAVE_PROCESS_H */

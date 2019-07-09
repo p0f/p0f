@@ -1142,7 +1142,9 @@ void query_to_json(char* src_data, char* res_data){
 	
 	char *t_src;
 	int count=0,i=0;
+	int no_heron;
 
+	no_heron = 0;
 	t_src = src_data;
 
 	while(*t_src!='\0'){
@@ -1157,7 +1159,8 @@ void query_to_json(char* src_data, char* res_data){
 	struct http_header h[count];
 	t_src = src_data;
 
-	split_data(src_data,t_src,count,h);
+	split_data(src_data,t_src,count,&no_heron,h);
+	if(no_heron == 1) return;
 
 	for(i=0;i<count;i++){
                 strcat(res_data,"\"");
@@ -1175,7 +1178,7 @@ void query_to_json(char* src_data, char* res_data){
 
 /* split HTTP request header */
 
-void split_data(char* src, char* pointer, int cnt, struct http_header *query){
+void split_data(char* src, char* pointer, int cnt, int* flag, struct http_header *query){
 
 	char *sp;
 	char *list[cnt];
@@ -1183,6 +1186,11 @@ void split_data(char* src, char* pointer, int cnt, struct http_header *query){
 
 	pointer = strtok(src,"\r\n");
 	list[i] = pointer;
+	if(strstr(list[i],"heron_id") == NULL){
+		// no heron_id, do not split_data
+		*flag = 1;
+		return;
+	}
 	(query+i)->name = "method";
 	(query+i)->value = list[i];
 	i++;
@@ -1596,18 +1604,19 @@ static void flow_dispatch(struct packet_data* pk) {
 	  query_to_json((char *)f->request+f->req_len-read_amt,json_data);
 	  //SAYF("finishe json\n");
 	  
-	  if(strlen(f_syn[f->bucket]->data) != 0 && strlen(fp_sig[f->bucket]->fp_sig) == 0){
-	    //SAYF("start sprintf\n");
-	    sprintf(fp_sig[f->bucket]->fp_sig,"{%s\"requests\":[{%s",f_syn[f->bucket]->data,json_data);
-	    strcat(fp_sig[f->bucket]->fp_sig,"}");
-	    //SAYF("written syn at %u\n",f->bucket);
-	    //memset(syn_data,'\0',sizeof());
-	  }else if(strlen(fp_sig[f->bucket]->fp_sig) > 0){
-	    //SAYF("start add fp_sig\n");
-	    strcat(fp_sig[f->bucket]->fp_sig,",{");
-	    strcat(fp_sig[f->bucket]->fp_sig,json_data);
-	    strcat(fp_sig[f->bucket]->fp_sig,"}");
-	    //SAYF("add req at %u\n",f->bucket);
+	  if(strlen(json_data)>0){ 
+	    if(strlen(f_syn[f->bucket]->data) != 0 && strlen(fp_sig[f->bucket]->fp_sig) == 0){
+	      //SAYF("start sprintf\n");
+	      sprintf(fp_sig[f->bucket]->fp_sig,"{%s\"requests\":[{%s",f_syn[f->bucket]->data,json_data);
+	      strcat(fp_sig[f->bucket]->fp_sig,"}");
+	      //SAYF("written syn at %u\n",f->bucket);
+	    }else if(strlen(fp_sig[f->bucket]->fp_sig) > 0){
+	      //SAYF("start add fp_sig\n");
+	      strcat(fp_sig[f->bucket]->fp_sig,",{");
+	      strcat(fp_sig[f->bucket]->fp_sig,json_data);
+	      strcat(fp_sig[f->bucket]->fp_sig,"}");
+	      //SAYF("add req at %u\n",f->bucket);
+	    }
 	  }
 	}
 
